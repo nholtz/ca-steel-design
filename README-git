@@ -1,0 +1,17 @@
+git gists
+
+1.  git branch newbranch     - make a new branch
+    
+    git checkout newbranch   - make the new branch the current branch
+
+    git fetch                - get all changes/all branches from remote
+
+    git merge                - merge changes into the current branch
+
+    git pull                 - fetch and merge in one fell swoop
+
+    git add -A               - start tracking all new files
+
+    git commit -a -m 'msg'
+
+    git push

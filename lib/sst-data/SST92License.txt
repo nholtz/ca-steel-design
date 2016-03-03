@@ -1,0 +1,46 @@
+STRUCTURAL SECTION TABLES v9.2 LICENSE
+
+Copyright (c) 2007 by the Canadian Institute of Steel Construction
+All rights reserved.
+
+This license is for End-Users (either an individual or a single entity) and Developers (people who make software) who have downloaded the free version of the Structural Section Tables from the Canadian Institute of Steel Construction website.
+
+SST LICENSE
+
+YOUR AGREEMENT TO THIS LICENSE
+
+This License only applies to the data on the dimensions and properties of structural steel shapes contained in the Structural Section Tables v9.2 ("SST"). You should carefully read the following terms and conditions before using, installing, copying, or distributing SST. Unless otherwise agreed in a writing signed by an authorized representative of the Canadian Institute of Steel Construction ("CISC"), your use, installation, copying, or distribution of SST indicates your acceptance of this agreement ("License"). You understand and agree that the terms and conditions of this License are the only terms and conditions applicable to your use of SST and any additional or different terms specified, referenced, and/or incorporated by any document provided by you or on your behalf are hereby rejected by CISC. 
+
+Please read the license terms below. If you do not agree to all of the terms and conditions of this License, then do not use, install or copy SST. 
+
+The terms and conditions of this License describe the permitted use and user(s) of each Licensed Copy of SST.
+
+SCOPE OF LICENSE
+
+Subject to the terms of this License, CISC grants to you, for each Licensed Copy, a limited, non-exclusive, non-transferable, royalty-free, license to install and use SST, solely for your personal or internal business purposes. 
+
+You have the right to install and use SST on each computer or workstation at your site. You may copy SST onto a network hard-drive for simultaneous use by one or more persons at your site. As used in this License, a Site means a single physical location owned or operated by you.
+
+You have the right to create derivative works based on, SST, in whole or in part, for use with applications or systems of your making, for personal or business purposes, whether internal or external, provided that you acknowledge the source of this data, prohibit your End-Users, or other developers, from disseminating this data, and supply your customer(s), or End-User(s), with the most up-to-date data within three months of CISC publishing a new version of SST.    
+
+You may not give, transfer or sell copies of SST.
+
+All rights of any kind in SST, which are not expressly granted in this License, are entirely and exclusively reserved to and by CISC. SST is protected by the Canadian Copyright Act and other applicable national and international laws and treaties. 
+
+You may use and install SST solely as expressly provided in this License. You may not rent, lease, loan, sublicense or modify, SST, in whole or in part, nor permit anyone else to do so. You may not make access to SST available to others in connection with a service bureau, application service provider, or similar business, nor permit anyone else to do so. 
+
+WARRANTY DISCLAIMERS AND LIABILITY LIMITATIONS
+
+Although no effort has been spared in an attempt to ensure that all the dimensions and properties of structural steel shapes in this database are factual, and that the numerical values are accurate to a degree consistent with current structural design practice, SST is distributed and provided "AS IS" and with no warranties of any kind, whether express or implied, including, without limitation, any warranty of merchantability or fitness for a particular purpose. Neither CISC nor any of its affiliates warrant, guarantee, or make any representations regarding the use of, or the results of the use of, SST. Neither CISC nor any of its affiliates warrants that the information contained in SST will be error-free, or complete. You acknowledge that good engineering practise dictates that any information source, including SST, must be thoroughly tested with non-critical data before there is any reliance on it, and you hereby assume the entire risk of all use of SST covered by this License. This disclaimer of warranty constitutes an essential part of this License. 
+
+CISC and its affiliates shall not be liable for any damage or financial loss arising out of the use of, or inability to use, SST. In no event shall CISC, or its principals, officers, employees, members, affiliates or contractors be liable for any direct, indirect, incidental, consequential, special, or punitive damages whatsoever relating to the use of SST, or to your relationship with, CISC and its affiliates (including, without limitation, loss of data or information, loss of profit, revenue, business opportunity or business advantage, or business interruption), whether based upon a claim or action of contract, warranty, negligence, strict liability, contribution, indemnity, or any other legal theory or cause of action, even if advised of the possibility of such damages. 
+
+In addition, in no event does CISC authorize you or anyone else to use SST in applications or systems where SST's failure to perform can reasonably be expected to result in a significant physical injury, or in loss of property, or loss of life. Any such use is entirely at your own risk, and you agree to hold CISC or its affiliates harmless from any and all claims or losses relating to such unauthorized use. 
+
+GENERAL
+
+This License is the complete statement of the agreement between the parties on the subject matter, and merges and supersedes all other or prior understandings, purchase orders, agreements, and arrangements.
+
+You may not assign, sublicense, subcontract, or otherwise transfer any of your rights or obligations or delegate any of your duties under this License, in whole or in part, without the prior written consent of CISC. Notwithstanding anything to the contrary, any assignment of this License or any rights or obligations hereunder is contingent upon the intended assignee agreeing to be bound by the terms of this License and all responsibilities and obligations of the assignor hereunder.
+
+If any part of this License or the application thereof to any person or circumstance is for any reason held invalid or unenforceable, it shall be deemed severable, and the validity of the remainder of this License, or the applications of such provision to other persons or circumstances, shall not be affected thereby.
