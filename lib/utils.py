@@ -99,7 +99,7 @@ def show(*vlists,**kw):
             continue
         for v in re.split(r'\s*,\s*',el.strip()):
             names.append((v,scale))
-    width = max([len(v) for vs in names])
+    width = max([len(v) for v,s in names])
     for v,s in names:  
         val = _eval(v)
         if isfloat(val):
