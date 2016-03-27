@@ -75,7 +75,9 @@ def show(*vlists,**kw):
     """Display the values of all variables named in
     an arbitrary number of comma-delimited strings. depth=0
     is number of levels above calling level; nsf=4 is number
-    of sig figs for floats."""
+    of sig figs for floats. vlist elements beginning with a '*'
+    give scales to apply to following values.  A None cancels
+    the scales.  EG:   show('A','*1E3','Sz,Zx',None,'Fy')"""
     depth = kw.get('depth',0)
     locals,globals = get_locals_globals(depth=depth+2) # locals in the caller
     nsigfig = kw.get('nsf',4)
@@ -87,14 +89,25 @@ def show(*vlists,**kw):
             return '???'
 
     names = []
+    scale = None
     for el in vlists:
+        if el is None:
+            scale = None
+            continue
+        if el.startswith('*'):
+            scale = el[1:].strip()
+            continue
         for v in re.split(r'\s*,\s*',el.strip()):
-            names.append(v)
-    width = max([len(v) for v in names])
-    for v in names:  
+            names.append((v,scale))
+    width = max([len(v) for vs in names])
+    for v,s in names:  
         val = _eval(v)
         if isfloat(val):
+            if s:
+                val /= float(s)
             val = '{0:.{1}g}'.format(val,nsigfig)
+            if s:
+                val += ' * ' + s
         else:
             val = str(val)
         print '{0:<{width}s} = {1}'.format(v,val,width=width)
