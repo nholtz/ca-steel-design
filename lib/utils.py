@@ -94,10 +94,12 @@ def show(*vlists,**kw):
         if el is None:
             scale = None
             continue
-        if el.startswith('*'):
-            scale = el[1:].strip()
-            continue
         for v in re.split(r'\s*,\s*',el.strip()):
+            if v.startswith('*'):
+                scale = v[1:].strip()
+                if scale == '1':
+                    scale = None
+                continue
             names.append((v,scale))
     width = max([len(v) for v,s in names])
     for v,s in names:  
