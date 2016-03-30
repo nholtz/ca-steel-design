@@ -114,7 +114,7 @@ def show(*vlists,**kw):
             val = str(val)
         print '{0:<{width}s} = {1}'.format(v,val,width=width)
 
-def call(func,shape,**kwargs):
+def call(func,shape,map={},**kwargs):
     """This is meant as a convenience for calling functions with *many* 
     positional parameters.    
     Calls function 'func' with arguments drawn from dictionary 'shape'
@@ -124,7 +124,8 @@ def call(func,shape,**kwargs):
     '*' or '**'.  All positional names must be defined in 'shape'. kwarg
     names may be defined in shape.  All kwarg names must be in the parameter
     list of the function.  kwarg values override those in 'shape' or in the 
-    defaults.
+    defaults. map provides an optional mapping from the argument names in func
+    to the names in shape.
     For example:
         def fn(a,b,c=10,d=20):
             ...
@@ -138,9 +139,9 @@ def call(func,shape,**kwargs):
     >>> def fn(a,b,c=10,d=20):
     ...    return (a,b,c,d)
     ...
-    >>> s = dict(a=100,b=200,c=300)
-    >>> call(fn,s,b=40)
-    (100,40,300,20)
+    >>> s = dict(a=100,b=200,c=300,q=500)
+    >>> call(fn,s,map={'a':'q'},b=40)
+    (500,40,300,20)
     """
 
     fargs,fvarargs,fkeywords,fdefaults = inspect.getargspec(func)
@@ -158,9 +159,20 @@ def call(func,shape,**kwargs):
         if k not in allargs:
             raise Exception('Invalid keyword argument: '+repr(k))
 
-    args = {k:shape[k] for k in fargs}  # positional params must be in shape dict
+    def _map(k,map=map):
+        return map[k] if k in map else k
+
+    args = {k:shape[_map(k)] for k in fargs}  # positional params must be in shape dict
     for k in fdefargs:                  # optional params may be in shape dict
-        if k in shape:
-            args[k] = shape[k]
+        km = _map(k)
+        if km in shape:
+            args[k] = shape[km]
     args.update(kwargs)                 # keyword args override anything in shape dict
     return func(**args)
+
+if __name__ == '__main__':
+    shape = dict(a=10,b=20,c=30,d=40,e=50,ee=500)
+    def __fn(a,b,c,d=41,e=51):
+        return (a,b,c,d,e)
+    print call(__fn,shape,map={'e':'ee'},b=-20)
+                    
