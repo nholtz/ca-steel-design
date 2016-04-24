@@ -1,3 +1,4 @@
+from __future__ import print_function
 import re
 import string
 import math
@@ -45,7 +46,7 @@ def SVG(filename,**kwargs):
 
 def _test_svg(bstream,fileobj):
     if fileobj:
-        fileobj.seek(0L)
+        fileobj.seek(0)
         data = fileobj.read(6)
     else:
         data = bstream.read(6)
@@ -163,7 +164,7 @@ def show(*vlists,**kw):
                 val += ' * ' + s
         else:
             val = str(val)
-        print '{0:<{width}s} = {1}'.format(v,val,width=width)
+        print('{0:<{width}s} = {1}'.format(v,val,width=width))
 
 def call(func,shape,map={},**kwargs):
     """This is meant as a convenience for calling functions with *many* 
@@ -225,5 +226,5 @@ if __name__ == '__main__':
     shape = dict(a=10,b=20,c=30,d=40,e=50,ee=500)
     def __fn(a,b,c,d=41,e=51):
         return (a,b,c,d,e)
-    print call(__fn,shape,map={'e':'ee'},b=-20)
+    print(call(__fn,shape,map={'e':'ee'},b=-20))
                     

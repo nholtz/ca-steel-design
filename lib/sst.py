@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 import pandas as pd
 import re
@@ -45,7 +46,7 @@ class SST(object):
         ans = []
         shps = self.shps()
         for shp in slist:
-            if type(shp) in [type(0),type(0L)]:
+            if type(shp) in [type(0),type(0)]:
                 ans.append(shp)
                 continue
             ans.extend([x for x,d,c in shps if d == shp])
@@ -303,34 +304,34 @@ if __name__ == '__main__':
 
     sst = SST()
     if 0:
-        print sst.props
-        print sst.shapes
-        print sst.shps()
+        print(sst.props)
+        print(sst.shapes)
+        print(sst.shps())
         t = sst.section_table(17)
-        print t
+        print(t)
 
-    print sst.section('W360x196')
+    print(sst.section('W360x196'))
 
-    print sst.sections('2L203x152x25')
+    print(sst.sections('2L203x152x25'))
 
     try:
-        print sst.section('2L203x152x25')
-    except Exception,e:
-        print "\n***** Error:", e
+        print(sst.section('2L203x152x25'))
+    except Exception as e:
+        print("\n***** Error:", e)
 
     if 1:
         w =  sst.section('W360x196')
         s = sst.show(w)
-        print s
+        print(s)
 
-        print sst.show(w,'latex')
-        print sst.show(w,'html')
+        print(sst.show(w,'latex'))
+        print(sst.show(w,'html'))
 
     if 1:
         tl = sst.section_tables(['2L'])
-        print tl
-        print tl.ix['2L203x152x25']
-        print tl.ix['2L152x152x25']
+        print(tl)
+        print(tl.ix['2L203x152x25'])
+        print(tl.ix['2L152x152x25'])
 
     if 1:
         wl = sst.section_tables(['W','WWF'],'Mass')
@@ -341,7 +342,7 @@ if __name__ == '__main__':
                 return dict(My=My)
     
         s = sst.select_rows(wl,myfunc0,maxn=5,Fy=350.,M=500.)
-        print s[['Mass','Sx','My']]
+        print(s[['Mass','Sx','My']])
 
         def myfunc(Zx,Fy=350.,Mf=0):
             Mp = Fy * Zx / 1E6
@@ -350,7 +351,7 @@ if __name__ == '__main__':
             return False
 
         s = sst.select(wl,myfunc,maxn=10)
-        print s[['Mass','Avl','Use','Zx','Mp','Foo','Fy','Mf']]
+        print(s[['Mass','Avl','Use','Zx','Mp','Foo','Fy','Mf']])
 
         s = sst.select(wl,myfunc,Fy=400.,Mf=100.,maxn=10)
-        print s[['Mass','Avl','Use','Zx','Mp','Foo','Fy','Mf']].sort_values('Mp',ascending=False)
+        print(s[['Mass','Avl','Use','Zx','Mp','Foo','Fy','Mf']].sort_values('Mp',ascending=False))
