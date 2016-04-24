@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 import re
 import inspect
@@ -150,20 +151,6 @@ class Param(object):
     __repr__ = __str__
     
     
-class Data(object):
-    
-    def __init__(self,**kwargs):
-        for k,v in kwargs.items():
-            setattr(self,k,v)
-            
-    def __getitem__(self,names):
-        assert isinstance(names,str)
-        l = [p.strip() for p in names.split(',')]
-        vals = [getattr(self,name) for name in l]
-        if len(vals) == 1:
-            return vals[0]
-        return vals
-    
 class Designer(object):
     
     def __init__(self,trace=False,var=None,units=None,selector=min,title='',nsigfigs=3,show_params=False):
@@ -193,7 +180,7 @@ class Designer(object):
         """Record an arbitrary note."""
         self._notes.append(msg)
         if self.trace:
-            print 'Note:',msg
+            print('Note:',msg)
             
     def check(self,flag,msg='',_varlist='',**kwargs):
         """Record the result of checking a requirement."""
@@ -205,7 +192,7 @@ class Designer(object):
         d.update(kwargs)
         self._checks.append((flag,msg,_varlist,d))
         if self.trace:
-            print self.fmt_check(self._checks[-1])
+            print(self.fmt_check(self._checks[-1]))
             
     def record(self,label,_varlist='',**kwargs):
         """Record a result for an analysis computation."""
@@ -217,7 +204,7 @@ class Designer(object):
         d.update(kwargs)
         self._record.append((label,_varlist,d))
         if self.trace:
-            print self.fmt_record(self._record[-1])
+            print(self.fmt_record(self._record[-1]))
 
     def fmt_check(self,chk,width=None):
         """Format a check record for display."""
@@ -239,7 +226,7 @@ class Designer(object):
         ans = "    {label:<{width}} ".format(label=label+':',width=width)
         if var:
             val = _vars.pop(var)
-            ##print val, type(val)
+            ##print(val, type(val))
             ans += '{0} = {1}'.format(var,(sfrounds(val,nsigfigs) if isfloat(val) else "{0!r}".format(val)))
             if self.units:
                 ans += ' '+str(self.units)
@@ -257,9 +244,9 @@ class Designer(object):
         """Display a summary of all recorded notes, checks, records."""
 
         if vars:
-            print "Values Used:"
-            print "============"
-            print
+            print("Values Used:")
+            print("============")
+            print()
             show(*vars,depth=1)
             
         var = self.var
@@ -270,45 +257,45 @@ class Designer(object):
         if self.title:
             hd += ': '+str(self.title)
         
-        print
-        print hd
-        print '=' * len(hd)
-        print
+        print()
+        print(hd)
+        print('=' * len(hd))
+        print()
         if self._notes:
-            print 'Notes:'
-            print '------'
+            print('Notes:')
+            print('------')
             for txt in self._notes:
-                print '    -',txt
-            print
+                print('    -',txt)
+            print()
             
         if self._checks:
-            print 'Checks:'
-            print '-------'
+            print('Checks:')
+            print('-------')
             width = max([len(l) for f,l,v,d in self._checks])
             for chk in self._checks:
-                print self.fmt_check(chk,width=width+2)
-            print
+                print(self.fmt_check(chk,width=width+2))
+            print()
                 
         hd = 'Values'
         if self.var:
             hd += ' of '+self.var
         hd += ':'
-        print hd
-        print '-'*len(hd)
+        print(hd)
+        print('-'*len(hd))
         width = max([len(l) for l,v,d in self._record])
         
         govval = None
         if var:
             govval = self.selector([d[var] for l,v,d in self._record])
         for rec in self._record:
-            print self.fmt_record(rec,var=var,width=width+1,govval=govval,nsigfigs=self.nsigfigs)
+            print(self.fmt_record(rec,var=var,width=width+1,govval=govval,nsigfigs=self.nsigfigs))
 
         if govval is not None:
-            print
+            print()
             h = 'Governing Value:'
-            print '   ',h
-            print '   ','-'*len(h)
-            print '      ','{0} = {1}'.format(var,(sfrounds(govval,self.nsigfigs) if isfloat(govval) else "{0!r}".format(govval))), self.units if self.units is not None else ''        
+            print('   ',h)
+            print('   ','-'*len(h))
+            print('      ','{0} = {1}'.format(var,(sfrounds(govval,self.nsigfigs) if isfloat(govval) else "{0!r}".format(govval))), self.units if self.units is not None else '')
             
     def _get_params(self):
         """Return a dictionary of the values of all parameters (class variables)."""
@@ -338,18 +325,19 @@ class Designer(object):
         if not callable(runner):
             return
         runner(after=self._execution_count,silent=False)
+        return True
         
     def compute(self):
         """The .compute() method is called by .run() (and thus by .interact()).
         The default implementation adds all parameters to the global namespace,
         and executes the rest of the module, if it is an imported file """
         p = self.inject_globals()
-        print 'Time:', datetime.datetime.now().ctime()
-        #print 'Globals Set:',', '.join(['{0}={1!r}'.format(k,p[k]) for k in sorted(p.keys(),key=lambda x: x.lower())])
-        print
-        self.run_imported_code()
+        print('Time:', datetime.datetime.now().ctime())
+        #print('Globals Set:',', '.join(['{0}={1!r}'.format(k,p[k]) for k in sorted(p.keys(),key=lambda x: x.lower())]))
+        print()
+        return self.run_imported_code()
 
-    def run(self,show=None):
+    def run(self,show=None,instruct=True):
         """Extract the values of all relevant parameters (class variables) and call
         the .compute() method with those as arguments."""
 
@@ -388,15 +376,18 @@ class Designer(object):
             params = [(p,v) for p,v in inspect.getmembers(self.__class__) if p[0] != '_' and isinstance(v,Param)]
             params.sort(key=lambda t: t[1]._relposn)
             width = max([len(p) for p,v in params])
-            print 'Parameter Values:'
-            print '================='
-            print
+            print('Parameter Values:')
+            print('=================')
+            print()
             for p,v in params:
-                print "{0:<{1}} = {2}".format(p,width,v.value)
-            print
+                print("{0:<{1}} = {2}".format(p,width,v.value))
+            print()
 
         ans = fn(**chkr_args)
-        return ans
+        if instruct:
+            print("Select the following cell and execute menu item 'Cell / Run All Below'.")
+
+        return
     
     nointeract = run    # an alternate spelling of .run()
 
@@ -422,7 +413,7 @@ class Designer(object):
             p = params[k]
             p.value = p.widget.value = v
 
-    def interact(self,show=None):
+    def interact(self,show=None,instruct=True):
         """Display the widgets created by 'Param()' values in the
         calls variables, in the order defined.  Add a go button
         with a callback that calls the '.run()' method, which in turn
@@ -448,11 +439,11 @@ class Designer(object):
         container.children = ws
         container.result = None
 
-        def call_run(button):
+        def call_run(button,instruct=instruct):
             clear_output(wait=True)
             button.disabled = True
             try:
-                container.result = self.run()
+                container.result = self.run(instruct=instruct)
             except Exception as e:
                 ip = get_ipython()
                 if ip is None:
@@ -463,6 +454,6 @@ class Designer(object):
                 button.disabled = False
             
         button.on_click(call_run)
-        call_run(button)
+        call_run(button,instruct=False)
 
         return container
