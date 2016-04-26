@@ -4,6 +4,8 @@ import pandas as pd
 import re
 import os.path
 import inspect
+import sys
+PYVER = sys.version_info.major
 
 __DIR__ = os.path.dirname(__file__) or '.'
 
@@ -21,7 +23,7 @@ def xx_sst_read_csv(basename):
     return pd.read_csv(url,skipinitialspace=True)
 
 def _sst_read_pickle(basename):
-    pathname = '{}/sst-data/sst-{}.p'.format(__DIR__,basename)
+    pathname = '{}/sst-data/sst-{}-{}.p'.format(__DIR__,basename,PYVER)
     t = pd.read_pickle(pathname)
     return t
 
