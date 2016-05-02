@@ -420,14 +420,18 @@ class Designer(object):
         calls the users '.compute()' method."""
         if show is not None:
             self.show_params = show
+        # build an ordered list of all members (instance variables) whose value is instance of Param() 
+        # and whose name doesn't start with '_'
         params = [(p,v) for p,v in inspect.getmembers(self.__class__) if p[0] != '_' and isinstance(v,Param)]
         params.sort(key=lambda t: t[1]._relposn)
+        # make a list of all the widgets from the list of Param()s
         ws = []
         for name,param in params:
             if param.widget:
                 if param.widget.description == '':
                     param.widget.description = name
                 ws.append(param.widget)
+        # add a 'Run' button to the list
         title = self.title if self.title else self.__class__.__name__
         button = widgets.Button(description="Run {0}".format(title))
         ws.append(button)
@@ -454,6 +458,6 @@ class Designer(object):
                 button.disabled = False
             
         button.on_click(call_run)
-        call_run(button,instruct=False)
+        call_run(button,instruct=False)  # ensure run() is called before button is clicked
 
         return container
