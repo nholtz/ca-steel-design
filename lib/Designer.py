@@ -461,3 +461,22 @@ class Designer(object):
         call_run(button,instruct=False)  # ensure run() is called before button is clicked
 
         return container
+
+class Data:
+
+    """Class Data is a convenience for maintaining separate data namespaces (records)"""
+    
+    def __init__(self,**keywrds):
+        for k,v in keywrds.items():
+            setattr(self,k,v)
+            
+    def __getitem__(self,s):
+        """Return a tuple of all named data values. If only one, return it bare."""
+        r = [getattr(self,n) for n in s.split(',')]
+        if len(r) == 1:
+            return r[0]
+        return r
+    
+    def __call__(self,s):
+        """Return a tuple of all named data values. If only one, return it bare."""
+        return self[s]
