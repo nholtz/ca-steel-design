@@ -480,3 +480,7 @@ class Data:
     def __call__(self,s):
         """Return a tuple of all named data values. If only one, return it bare."""
         return self[s]
+
+# instantiate the section tables
+
+SST = sst.SST()
