@@ -27,6 +27,23 @@ def _sst_read_pickle(basename):
     t = pd.read_pickle(pathname)
     return t
 
+class Properties(object):
+
+    def __init__(self,series_or_dict={}):
+        d = series_or_dict if issubclass(type(series_or_dict),dict) else series_or_dict.to_dict()
+        for k,v in d.items():
+            setattr(self,k,v)
+
+    def props(self,properties=''):
+        props = [x.strip() for x in properties.split(',')]
+        return [getattr(self,x) for x in props if x]
+
+    def __getitem__(self,key):
+        return getattr(self,key)
+
+    def __setitem__(self,key,value):
+        setattr(self,key,value)
+
 class SST(object):
 
     def __init__(self):
@@ -127,7 +144,7 @@ class SST(object):
                     properties = [p.strip() for p in properties.split(',')]
                 ans = [sect[p] for p in properties]
                 return ans[0] if len(properties) == 1 else ans
-            return sect
+            return Properties(sect)
         if len(sections) == 0:
             raise KeyError('No section with designation: ' + dsg)
         raise KeyError('More than one section with designation: ' + dsg)
@@ -198,7 +215,9 @@ class SST(object):
             xlate = _2html
         else:
             raise AssertionError('Invalid value for math: '+math)
-            
+
+        if not isinstance(section,pd.Series):
+            section = pd.Series(vars(section)) # because thats the way we used to do it
         df = section.loc[~pd.isnull(section)].to_frame()
         props = self.props.ix[section.keys()]
         df['Expo'] = props['Expo']
@@ -285,7 +304,7 @@ class SST(object):
         newcols = True
 
         for ix,row in table.iterrows():
-            v = func(row,**kwargs)
+            v = func(Properties(row),**kwargs)
             if v:
                 ixlist.append(ix)
                 vlist.append(v)
