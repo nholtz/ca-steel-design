@@ -133,6 +133,9 @@ def show(*vlists,**kw):
     depth = kw.get('depth',0)
     locals,globals = get_locals_globals(depth=depth+2) # locals in the caller
     nsigfig = kw.get('nsf',4)
+    obj = kw.get('object',None)
+    if obj:
+        locals = vars(obj)
 
     def _eval(e,locals=locals,globals=globals):
         try:
