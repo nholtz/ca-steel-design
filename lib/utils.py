@@ -99,10 +99,10 @@ def isfloat(x):
 
 def sfround(x, n=3):
     """Returns x rounded to n significant figures."""
-    if x == 0.:
-        return x
-    s = round(x, int(n - math.ceil(math.log10(abs(x)))))
-    return s
+    y = abs(x)
+    if y <= sys.float_info.min:
+        return 0.
+    return round(x, int(n - math.ceil(math.log10(y))))
 
 def sfrounds(x, nsf=4):
     """Returns x as a string, rounded to n significant figures."""
@@ -163,7 +163,7 @@ def show(*vlists,**kw):
         if isfloat(val):
             if s:
                 val /= float(s)
-            val = '{0:.{1}g}'.format(val,nsigfig)
+            val = '{0:g}'.format(sfround(val,n=nsigfig))
             if s:
                 val += ' * ' + s
         else:
