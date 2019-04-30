@@ -216,10 +216,12 @@ class SST(object):
         else:
             raise AssertionError('Invalid value for math: '+math)
 
-        if not isinstance(section,pd.Series):
-            section = pd.Series(vars(section)) # because thats the way we used to do it
-        df = section.loc[~pd.isnull(section)].to_frame()
-        props = self.props.ix[section.keys()]
+        if isinstance(section,pd.Series):
+            d = section.to_dict()
+        else:
+            d = vars(section)
+        df = pd.DataFrame.from_dict(d,orient='index')
+        props = self.props.ix[d.keys()]
         df['Expo'] = props['Expo']
         df['Units'] = props['Unit']
         df['Property Description'] = props['Desc']
