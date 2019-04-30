@@ -135,7 +135,8 @@ def show(*vlists,**kw):
     nsigfig = kw.get('nsf',4)
     obj = kw.get('object',None)
     if obj:
-        locals = vars(obj)
+        locals = locals.copy()
+        locals.update(vars(obj))
 
     def _eval(e,locals=locals,globals=globals):
         try:
