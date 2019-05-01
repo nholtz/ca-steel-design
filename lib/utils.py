@@ -128,8 +128,10 @@ def show(*vlists,**kw):
     an arbitrary number of comma-delimited strings. depth=0
     is number of levels above calling level; nsf=4 is number
     of sig figs for floats. vlist elements beginning with a '*'
-    give scales to apply to following values.  A None cancels
-    the scales.  EG:   show('A','*1E3','Sz,Zx',None,'Fy')"""
+    give scales to apply to following values.  A None or
+    bare * or *1 cancels
+    the scales.  EG:   show('A,*1E3,Sz,Zx,*,Fy')"""
+    
     depth = kw.get('depth',0)
     locals,globals = get_locals_globals(depth=depth+2) # locals in the caller
     nsigfig = kw.get('nsf',4)
@@ -162,7 +164,12 @@ def show(*vlists,**kw):
         val = _eval(v)
         if isfloat(val):
             if s:
-                val /= float(s)
+                if '^' in s:
+                    ss = '**'.join(s.split('^'))
+                    S = float(eval(ss))
+                else:
+                    S = float(s)
+                val /= S
             val = '{0:g}'.format(sfround(val,n=nsigfig))
             if s:
                 val += ' * ' + s
