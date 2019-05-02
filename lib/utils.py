@@ -162,10 +162,14 @@ def show(*vlists,**kw):
                 if scale == '1':
                     scale = None
                 continue
-            names.append((v,scale))
-    width = max([len(v) for v,s in names])
-    for v,s in names:  
-        val = _eval(v)
+            if '=' in v:
+                key,expr = v.split('=',1)
+            else:
+                key = expr = v
+            names.append((key,expr,scale))
+    width = max([len(v) for v,e,s in names])
+    for v,e,s in names:  
+        val = _eval(e)
         if isfloat(val):
             if s:
                 if '^' in s:
