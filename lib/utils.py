@@ -139,6 +139,10 @@ def show(*vlists,**kw):
     if obj:
         locals = locals.copy()
         locals.update(vars(obj))
+    dct = kw.get('data',None)
+    if dct:
+        locals = locals.copy()
+        locals.update(dct)
 
     def _eval(e,locals=locals,globals=globals):
         try:
