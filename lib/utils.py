@@ -241,6 +241,33 @@ def call(func,shape,map={},**kwargs):
     args.update(kwargs)                 # keyword args override anything in shape dict
     return func(**args)
 
+class Recorder(object):
+    
+    def __init__(self):
+        self.values = []
+        
+    def record(self,name,value=None,desc=None):
+        self.values.append((name,value,value,desc))
+        
+    __call__ = record
+
+    def summary(self,which=min):
+        nsigfig = 4
+        table = []
+        govtag = 'governs -->'
+        for key,val,txt,desc in self.values:
+            vat = '{0:g}'.format(sfround(val,n=nsigfig))
+            table.append((key,val,vat,desc))
+        keywid = max([len(key) for key,val,vat,desc in table])
+        vatwid = max([len(vat) for key,val,vat,desc in table])
+        descwid = max([len(desc) for key,val,vat,desc in table])
+        govval = which([val for key,val,vat,desc in table])
+        tagwid = len(govtag)
+        for key,val,vat,desc in table:
+            tag = govtag if val == govval else ''
+            l = '{0:<{1}s} {2:>{3}s} = {4:<{5}s}    - {6:<{7}s}'.format(tag,tagwid,key,keywid,vat,vatwid,desc,descwid)
+            print(l)
+
 if __name__ == '__main__':
     shape = dict(a=10,b=20,c=30,d=40,e=50,ee=500)
     def __fn(a,b,c,d=41,e=51):
