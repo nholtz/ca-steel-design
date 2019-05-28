@@ -39,6 +39,7 @@ def fmt_dict(d,varlist='',nsigfigs=4):
     if varlist:
         for k in re.split(r'\s*,\s*',varlist.strip()):
             ans.append(_fmt_pair(k,d.pop(k)))
+    sorted = lambda l: l
     for k in sorted(d.keys()):
         ans.append(_fmt_pair(k,d[k]))
     return ', '.join(ans)
@@ -215,7 +216,7 @@ class Designer(object):
             return "    {0:<{1}}  OK - ({2})".format(label+':',width,fmt_dict(_vars,_varlist))
         return "    {0:<{1}}  NG! - ({2}) ****".format(label+':',width,fmt_dict(_vars,_varlist))
     
-    def fmt_record(self,rec,width=None,var=None,govval=None,nsigfigs=4):
+    def fmt_record(self,rec,width=None,var=None,govval=None,nsigfigs=4,showvars=True):
         """Format a computation record for display."""
         label,_varlist,_vars = rec
         _vars = _vars.copy()
@@ -233,7 +234,7 @@ class Designer(object):
             if govval is not None:
                 if val == govval:
                     ans += '  <-- governs'
-        if _vars:
+        if _vars and showvars:
             ans += '\n       ('+fmt_dict(_vars)+')'
         return ans
 
@@ -288,7 +289,7 @@ class Designer(object):
         if var:
             govval = self.selector([d[var] for l,v,d in self._record])
         for rec in self._record:
-            print(self.fmt_record(rec,var=var,width=width+1,govval=govval,nsigfigs=self.nsigfigs))
+            print(self.fmt_record(rec,var=var,width=width+1,govval=govval,nsigfigs=self.nsigfigs,showvars=False))
 
         if govval is not None:
             print()
