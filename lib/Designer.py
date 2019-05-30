@@ -170,7 +170,7 @@ class Designer(object):
         
         self.SST = sst.SST()
             
-    def require(self,val,msg='',**kwargs):
+    def require(self,msg='',_varlist='',val=False,**kwargs):
         """Raise an exception with a msg if flag is not True."""
         if msg == '':
             msg = 'Error'
@@ -183,7 +183,7 @@ class Designer(object):
         if self.trace:
             print('Note:',msg)
             
-    def check(self,flag,msg='',_varlist='',**kwargs):
+    def check(self,msg='',_varlist='',val=False,**kwargs):
         """Record the result of checking a requirement."""
         d = {}
         if _varlist:
@@ -191,7 +191,7 @@ class Designer(object):
             for v in re.split(r'\s*,\s*',_varlist.strip()):
                 d[v] = locals[v] if v in locals else globals[v]
         d.update(kwargs)
-        self._checks.append((flag,msg,_varlist,d))
+        self._checks.append((val,msg,_varlist,d))
         if self.trace:
             print(self.fmt_check(self._checks[-1]))
             
@@ -213,8 +213,8 @@ class Designer(object):
         if width is None:
             width = len(label)
         if flag:
-            return "    {0:<{1}}  OK - ({2})".format(label+':',width,fmt_dict(_vars,_varlist))
-        return "    {0:<{1}}  NG! - ({2}) ****".format(label+':',width,fmt_dict(_vars,_varlist))
+            return "    {0:<{1}}  OK \n      ({2})".format(label+':',width,fmt_dict(_vars,_varlist))
+        return "    {0:<{1}}  NG! *****\n      ({2})".format(label+':',width,fmt_dict(_vars,_varlist))
     
     def fmt_record(self,rec,width=None,var=None,govval=None,nsigfigs=4,showvars=True):
         """Format a computation record for display."""
@@ -463,25 +463,110 @@ class Designer(object):
 
         return container
 
-class Data:
 
-    """Class Data is a convenience for maintaining separate data namespaces (records)"""
+def Warn(s):
+    print('***** WARNING:',s,'*****')
     
-    def __init__(self,**keywrds):
-        for k,v in keywrds.items():
-            setattr(self,k,v)
-            
-    def __getitem__(self,s):
-        """Return a tuple of all named data values. If only one, return it bare."""
-        r = [getattr(self,n) for n in s.split(',')]
-        if len(r) == 1:
-            return r[0]
-        return r
+def _get(dct,keys):
+    """Return the value, in dct, of all comma-sperated expressions
+    in keys.  Each key expression can be:
+       - an identifier, or
+       - and identifier=default_value, or
+       - an expression that is evaluated
+    If there is only one key, return a singleton, else return a list of values.
+    eg:  d = dict(a=10,b=20)
+         _get(d,'a,b=40,c=50,a+b') => [10,20,50,30]
+    """
+    ans = []
+    keys = keys.split(',')
+    for k in keys:
+        default = None
+        if '=' in k:
+            k,default = k.split('=',1)
+        k = k.strip()
+        if k in dct:
+            ans.append(dct[k])
+        elif default is not None:
+            ans.append(eval(default,{},dct))
+        else:
+            ans.append(eval(k,{},dct))
+    if len(keys) == 1:
+        return ans[0]
+    return ans
     
-    def __call__(self,s):
-        """Return a tuple of all named data values. If only one, return it bare."""
-        return self[s]
+    
+class Namespace(object):
 
+    """A single unnamed namespace (dictionary of key-value pairs).
+       Values can be extracted via attribute syntax, or indes syntax.
+       N = Namespace(dict(a=10,b=20,c=30)).  
+       N.a => 10
+       N['b'] => 20
+       N['c,b,a'] => [30,20,10]
+       """
+    
+    def __init__(self,namespace):
+        self.namespace = namespace
+        
+    def __getattr__(self,name):
+        if name in self.namespace:
+            return self.namespace[name]
+        raise AttributeError('Attribute not found: '+name)
+        
+    def get(self,keys):
+        return _get(self.namespace,keys)
+    
+    def __getitem__(self,keys):
+        return _get(self.namespace,keys)
+    
+
+class Data(object):
+
+    """A convenience class for managing multiple named namespaces.
+       These are dictionaries of key-value pairs, associated with a
+       name for each set.
+
+       D = Data()
+       D.set('Set1',a=10,b=20,c=30,d=40)
+       D.set('Set2',a=100,b=200,c=300)
+       D.Set1.a => 10
+       D.Set1['a'] => 10
+       D.Set1['a,c,d'] => [10,30,40]
+       D['Set1','a,c,d'] => [10,30,40]
+       D['Set1,Set2','a,c,d,2*a,e=11'] => [100,300,40,200,11]
+       """
+    
+    def __init__(self,nooverrides=False):
+        self.namespaces = {}
+        self.nooverrides = nooverrides
+        
+    def set(self,ns,**keywds):
+        if ns not in self.namespaces:
+            self.namespaces[ns] = {}
+        self.namespaces[ns].update(keywds)
+        
+    def get(self,ns,keys):
+        dct = {}
+        for n in ns.split(','):
+            n = n.strip()
+            if self.nooverrides:
+                for k,v in self.namespaces[n].items():
+                    if k in dct:
+                        raise KeyError(f'Parameter "{k}" is multiply defined.')
+                    dct[k] = v
+            else:
+                dct.update(self.namespaces[n])
+        return _get(dct,keys)
+    
+    def __getitem__(self,indx):
+        return self.get(indx[0],indx[1])
+    
+    def __getattr__(self,name):
+        if name in self.namespaces:
+            return Namespace(self.namespaces[name])
+        raise AttributeError('Attribute not found: '+name)
+
+    
 # instantiate the section tables
 
 SST = sst.SST()
