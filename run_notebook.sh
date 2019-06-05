@@ -1,3 +1,3 @@
 #!/bin/bash
 
-PYTHONPATH=`/bin/pwd`/lib jupyter notebook
+PYTHONPATH=`/bin/pwd`/lib jupyter lab

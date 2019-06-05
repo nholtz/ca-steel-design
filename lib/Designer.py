@@ -154,7 +154,7 @@ class Param(object):
     
 class Designer(object):
     
-    def __init__(self,trace=False,var=None,units=None,selector=min,title='',nsigfigs=3,show_params=False):
+    def __init__(self,var,trace=False,units=None,selector=min,title='',nsigfigs=3,show_params=False):
         self.trace = trace
         self.var = var
         self.units = units
@@ -170,7 +170,7 @@ class Designer(object):
         
         self.SST = sst.SST()
             
-    def require(self,msg='',_varlist='',val=False,**kwargs):
+    def require(self,val,msg='',_varlist='',**kwargs):
         """Raise an exception with a msg if flag is not True."""
         if msg == '':
             msg = 'Error'
@@ -183,7 +183,7 @@ class Designer(object):
         if self.trace:
             print('Note:',msg)
             
-    def check(self,msg='',_varlist='',val=False,**kwargs):
+    def check(self,val,msg='',_varlist='',**kwargs):
         """Record the result of checking a requirement."""
         d = {}
         if _varlist:
@@ -194,8 +194,9 @@ class Designer(object):
         self._checks.append((val,msg,_varlist,d))
         if self.trace:
             print(self.fmt_check(self._checks[-1]))
+        return val
             
-    def record(self,label,_varlist='',**kwargs):
+    def record(self,val,label,_varlist='',**kwargs):
         """Record a result for an analysis computation."""
         d = {}
         if _varlist:
@@ -203,9 +204,12 @@ class Designer(object):
             for v in re.split(r'\s*,\s*',_varlist.strip()):
                 d[v] = locals[v] if v in locals else globals[v]
         d.update(kwargs)
+        if self.var:
+            d[self.var] = val
         self._record.append((label,_varlist,d))
         if self.trace:
             print(self.fmt_record(self._record[-1]))
+        return val
 
     def fmt_check(self,chk,width=None):
         """Format a check record for display."""
@@ -213,8 +217,8 @@ class Designer(object):
         if width is None:
             width = len(label)
         if flag:
-            return "    {0:<{1}}  OK \n      ({2})".format(label+':',width,fmt_dict(_vars,_varlist))
-        return "    {0:<{1}}  NG! *****\n      ({2})".format(label+':',width,fmt_dict(_vars,_varlist))
+            return "    {0:<{1}}  OK \n      ({2})".format(label+'?',width,fmt_dict(_vars,_varlist))
+        return "    {0:<{1}}  NG! *****\n      ({2})".format(label+'?',width,fmt_dict(_vars,_varlist))
     
     def fmt_record(self,rec,width=None,var=None,govval=None,nsigfigs=4,showvars=True):
         """Format a computation record for display."""

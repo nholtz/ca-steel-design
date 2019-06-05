@@ -41,6 +41,9 @@ class Part(object):
     
     def __getitem__(self,keys):
         return self.get(keys)
+
+    def __call__(self,keys):
+        return self.get(keys)
     
     def __add__(self,other):
         return PartSet(self,other)
