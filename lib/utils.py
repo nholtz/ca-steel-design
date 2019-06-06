@@ -156,6 +156,9 @@ def show(*vlists,**kw):
         if el is None:
             scale = None
             continue
+        if callable(getattr(el,'vars',None)):
+            locals = el.vars()
+            continue
         for v in re.split(r'\s*,\s*',el.strip()):
             if v.startswith('*'):
                 scale = v[1:].strip()
@@ -166,10 +169,10 @@ def show(*vlists,**kw):
                 key,expr = v.split('=',1)
             else:
                 key = expr = v
-            names.append((key,expr,scale))
-    width = max([len(v) for v,e,s in names])
-    for v,e,s in names:  
-        val = _eval(e)
+            names.append((key,expr,scale,locals))
+    width = max([len(v) for v,e,s,l in names])
+    for v,e,s,l in names:  
+        val = _eval(e,locals=l)
         if isfloat(val):
             if s:
                 if '^' in s:

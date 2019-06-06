@@ -152,7 +152,7 @@ class Param(object):
     __repr__ = __str__
     
     
-class Designer(object):
+class DesignNotes(object):
     
     def __init__(self,var,trace=False,units=None,selector=min,title='',nsigfigs=3,show_params=False):
         self.trace = trace
@@ -255,10 +255,10 @@ class Designer(object):
             show(*vars,depth=1)
             
         var = self.var
-        hd = 'Summary of'
-        if var is not None:
-            hd += ' '+var+' for '
+        hd = 'Summary of '
         hd += self.__class__.__name__
+        if var is not None:
+            hd += ' for '+var
         if self.title:
             hd += ': '+str(self.title)
         
@@ -499,78 +499,88 @@ def _get(dct,keys):
     return ans
     
     
-class Namespace(object):
-
-    """A single unnamed namespace (dictionary of key-value pairs).
-       Values can be extracted via attribute syntax, or indes syntax.
-       N = Namespace(dict(a=10,b=20,c=30)).  
-       N.a => 10
-       N['b'] => 20
-       N['c,b,a'] => [30,20,10]
-       """
+class Part(object):
     
-    def __init__(self,namespace):
-        self.namespace = namespace
-        
-    def __getattr__(self,name):
-        if name in self.namespace:
-            return self.namespace[name]
-        raise AttributeError('Attribute not found: '+name)
-        
+    def __init__(self,_doc='',**keywd):
+        self._doc = _doc
+        self.set(**keywd)
+            
+    def set(self,**keywd):
+        for k,v in keywd.items():
+            setattr(self,k,v)
+            
+    def setfrom(self,keys,*others):
+        keys = set([k.strip() for k in keys.split(',')])
+        for other in others:
+            for k,v in other.vars().items():
+                if k in keys:
+                    setattr(self,k,v)
+
+    def inherit(self,keys,*others):
+        if type(keys) == type(''):
+            keys = set([k.strip() for k in keys.split(',')])
+        else:
+            others = (keys,) + others
+            keys = None
+        for other in others:
+            for k,v in other.vars().items():
+                if not hasattr(self,k):
+                    if keys is None or k in keys:
+                        setattr(self,k,v)
+
     def get(self,keys):
-        return _get(self.namespace,keys)
+        return _get(self.vars(),keys)
+    
+    def vars(self):
+        return vars(self)
     
     def __getitem__(self,keys):
-        return _get(self.namespace,keys)
+        return self.get(keys)
+
+    def __call__(self,keys):
+        return self.get(keys)
     
+    def __add__(self,other):
+        return PartSet(self,other)
 
-class Data(object):
-
-    """A convenience class for managing multiple named namespaces.
-       These are dictionaries of key-value pairs, associated with a
-       name for each set.
-
-       D = Data()
-       D.set('Set1',a=10,b=20,c=30,d=40)
-       D.set('Set2',a=100,b=200,c=300)
-       D.Set1.a => 10
-       D.Set1['a'] => 10
-       D.Set1['a,c,d'] => [10,30,40]
-       D['Set1','a,c,d'] => [10,30,40]
-       D['Set1,Set2','a,c,d,2*a,e=11'] => [100,300,40,200,11]
-       """
+class PartSet(object):
     
-    def __init__(self,nooverrides=False):
-        self.namespaces = {}
-        self.nooverrides = nooverrides
+    def __init__(self,*all):
+        self.parts = []
+        for p in all:
+            if type(p) in [list,tuple]:
+                for pp in p:
+                    self.addpart(pp)
+                continue
+            if type(p) is self.__class__:
+                for pp in p.parts:
+                    self.addpart(pp)
+                continue
+            self.addpart(p)
+            
+    def addpart(self,part):
+        if type(part) is Part:
+            if part not in self.parts:
+                self.parts.append(part)
+            return
+        raise TypeError('Invalid part type: "{}"'.format(part))
         
-    def set(self,ns,**keywds):
-        if ns not in self.namespaces:
-            self.namespaces[ns] = {}
-        self.namespaces[ns].update(keywds)
-        
-    def get(self,ns,keys):
-        dct = {}
-        for n in ns.split(','):
-            n = n.strip()
-            if self.nooverrides:
-                for k,v in self.namespaces[n].items():
-                    if k in dct:
-                        raise KeyError(f'Parameter "{k}" is multiply defined.')
-                    dct[k] = v
-            else:
-                dct.update(self.namespaces[n])
-        return _get(dct,keys)
+    def vars(self):
+        ans = {}
+        for p in self.parts:
+            ans.update(p.vars())
+        return ans
     
-    def __getitem__(self,indx):
-        return self.get(indx[0],indx[1])
+    def get(self,keys):
+        return _get(self.vars(),keys)
     
-    def __getattr__(self,name):
-        if name in self.namespaces:
-            return Namespace(self.namespaces[name])
-        raise AttributeError('Attribute not found: '+name)
+    def __getitem__(self,keys):
+        return self.get(keys)    
+    
+    def __add__(self,other):
+        return self.__class__(self.parts,other)
 
-    
+
 # instantiate the section tables
 
 SST = sst.SST()
