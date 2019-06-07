@@ -22,6 +22,19 @@ class CheckerWarning(Warning):
 def Error(msg):
     raise CheckerError(msg)
 
+def fmt_quantity(v,nsigfigs=4,sep=''):
+    u = ''
+    if hasattr(v,'magnitude') and hasattr(v,'units'):
+        u = str(v.units)
+        v = v.magnitude
+    if isfloat(v):
+        v = sfrounds(v,nsigfigs)
+    else:
+        v = str(v)
+    if u:
+        v = v + sep + u
+    return v
+
 def fmt_dict(d,varlist='',nsigfigs=4):
     """Format the values in the dictionary, d, as a 
     comma-separated list of name=val pairs.  Format floats
@@ -30,11 +43,7 @@ def fmt_dict(d,varlist='',nsigfigs=4):
     format whatever is left, in whatever order they come."""
     d = d.copy()
     def _fmt_pair(k,v):
-        if isfloat(v):
-            v = sfrounds(v,nsigfigs)
-        else:
-            v = repr(v)
-        return '{0}={1}'.format(k,v)
+        return '{0}={1}'.format(k,fmt_quantity(v,nsigfigs=nsigfigs))
     ans = []
     if varlist:
         for k in re.split(r'\s*,\s*',varlist.strip()):
@@ -175,7 +184,7 @@ class DesignNotes(object):
         if msg == '':
             msg = 'Error'
         if not val:
-            Error(msg+': '+fmt_dict(kwargs))
+            Error('FATAL!! '+msg+': '+fmt_dict(kwargs))
             
     def note(self,msg):
         """Record an arbitrary note."""
@@ -198,6 +207,8 @@ class DesignNotes(object):
             
     def record(self,val,label,_varlist='',**kwargs):
         """Record a result for an analysis computation."""
+        if self.units and hasattr(val,'to'):
+            val = val.to(self.units)
         d = {}
         if _varlist:
             locals,globals = get_locals_globals()
@@ -209,7 +220,7 @@ class DesignNotes(object):
         self._record.append((label,_varlist,d))
         if self.trace:
             print(self.fmt_record(self._record[-1]))
-        return val
+        ##return val
 
     def fmt_check(self,chk,width=None):
         """Format a check record for display."""
@@ -232,9 +243,7 @@ class DesignNotes(object):
         if var:
             val = _vars.pop(var)
             ##print(val, type(val))
-            ans += '{0} = {1}'.format(var,(sfrounds(val,nsigfigs) if isfloat(val) else "{0!r}".format(val)))
-            if self.units:
-                ans += ' '+str(self.units)
+            ans += '{0} = {1}'.format(var,fmt_quantity(val,nsigfigs=nsigfigs,sep=' '))
             if govval is not None:
                 if val == govval:
                     ans += '  <-- governs'
@@ -300,7 +309,7 @@ class DesignNotes(object):
             h = 'Governing Value:'
             print('   ',h)
             print('   ','-'*len(h))
-            print('      ','{0} = {1}'.format(var,(sfrounds(govval,self.nsigfigs) if isfloat(govval) else "{0!r}".format(govval))), self.units if self.units is not None else '')
+            print('      ','{0} = {1}'.format(var,fmt_quantity(govval,self.nsigfigs,' ')))
             
     def _get_params(self):
         """Return a dictionary of the values of all parameters (class variables)."""

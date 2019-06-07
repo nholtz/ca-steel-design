@@ -171,8 +171,13 @@ def show(*vlists,**kw):
                 key = expr = v
             names.append((key,expr,scale,locals))
     width = max([len(v) for v,e,s,l in names])
-    for v,e,s,l in names:  
+    lines = []
+    for v,e,s,l in names:
+        units = ''
         val = _eval(e,locals=l)
+        if hasattr(val,'magnitude') and hasattr(val,'units'):
+            units = str(val.units)
+            val = val.magnitude
         if isfloat(val):
             if s:
                 if '^' in s:
@@ -186,7 +191,10 @@ def show(*vlists,**kw):
                 val += ' * ' + s
         else:
             val = str(val)
-        print('{0:<{width}s} = {1}'.format(v,val,width=width))
+        lines.append((v,val,units))
+    valwidth = max([len(val) for v,val,units in lines])
+    for v,val,units in lines:
+        print('{0:<{width}s} = {1:<{valwidth}s} {2}'.format(v,val,units,width=width,valwidth=valwidth))
 
 def call(func,shape,map={},**kwargs):
     """This is meant as a convenience for calling functions with *many* 
