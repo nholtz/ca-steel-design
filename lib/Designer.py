@@ -203,7 +203,7 @@ class DesignNotes(object):
         self._checks.append((val,msg,_varlist,d))
         if self.trace:
             print(self.fmt_check(self._checks[-1]))
-        return val
+        ##return val
             
     def record(self,val,label,_varlist='',**kwargs):
         """Record a result for an analysis computation."""
@@ -552,6 +552,42 @@ class Part(object):
     def __add__(self,other):
         return PartSet(self,other)
 
+    def __enter__(self):
+        """Add all attributes/values to the set of global variables.
+        Save enough state so that they can be restored when the context
+        manager exits."""
+        if hasattr(self,'__saved__'):
+            raise Exception('Object already is a context manager. Cannot be one again.')
+        dct = vars(self)
+        _new = []                # save a list of newly added variables
+        _old = {}                # remember values of those that already exist in globals.
+        f = sys._getframe(1)     # get the globals from the caller
+        globs = f.f_globals
+        for k,v in dct.items():
+            if k.startswith('_'):
+                continue
+            if k in globs:
+                _old[k] = globs[k]
+            else:
+                _new.append(k)
+            globs[k] = v
+        self.__saved__ = (_new,_old)
+        return self
+    
+    def __exit__(self,*l):
+        """When the context exits, restore the global values to what they
+        were before entering."""
+        _new,_old = self.__saved__
+        f = sys._getframe(1)          # restore the global values
+        globs = f.f_globals
+        for k,v in _old.items():
+            globs[k] = v              # restore old values
+        for k in _new:
+            del globs[k]              # or delete them if they were newly created
+        del self.__saved__
+        return False              # to re-raise exceptions
+
+
 class PartSet(object):
     
     def __init__(self,*all):
@@ -589,6 +625,11 @@ class PartSet(object):
     def __add__(self,other):
         return self.__class__(self.parts,other)
 
+def extract(keys,*parts):
+    dct = {}
+    for part in reversed(parts):  # that way, priority is left to right
+        dct.update( part.vars() )
+    return _get(dct,keys)
 
 # instantiate the section tables
 
