@@ -518,24 +518,31 @@ class Part(object):
         for k,v in keywd.items():
             setattr(self,k,v)
             
-    def setfrom(self,keys,*others):
-        keys = set([k.strip() for k in keys.split(',')])
-        for other in others:
-            for k,v in other.vars().items():
-                if k in keys:
-                    setattr(self,k,v)
-
-    def inherit(self,keys,*others):
-        if type(keys) == type(''):
+    def copyfrom(self,keys,*others):
+        if type(keys) == type('') and keys:
             keys = set([k.strip() for k in keys.split(',')])
         else:
             others = (keys,) + others
             keys = None
         for other in others:
             for k,v in other.vars().items():
-                if not hasattr(self,k):
-                    if keys is None or k in keys:
+                if keys is None or k in keys:
+                    setattr(self,k,v)
+        return self
+        
+
+    def inherit(self,keys,*others):
+        if type(keys) == type('') and keys:
+            keys = set([k.strip() for k in keys.split(',')])
+        else:
+            others = (keys,) + others
+            keys = None
+        for other in others:
+            for k,v in other.vars().items():
+                if keys is None or k in keys:
+                    if not hasattr(self,k):
                         setattr(self,k,v)
+        return self
 
     def get(self,keys):
         return _get(self.vars(),keys)
@@ -586,6 +593,22 @@ class Part(object):
             del globs[k]              # or delete them if they were newly created
         del self.__saved__
         return False              # to re-raise exceptions
+
+    def show(self,keys=None):
+        """Show variables in same form as show() function. If keys is None,
+        show all with _doc first.  keys can be like in show - ie, expressions,
+        scales."""
+        v = self.vars()
+        if keys is None:
+            pairs = sorted([(k.lower(),k) for k in v.keys()])
+            keys = ','.join([o for k,o in pairs])
+        show(keys,data=v)
+
+    def extract(self,keys):
+        """return a part containing only the named keys"""
+        keys = [k.strip() for k in keys.split(',')]
+        d = {k:getattr(self,k) for k in keys}
+        return self.__class__('Part of '+self._doc,**d)
 
 
 class PartSet(object):

@@ -192,7 +192,7 @@ def show(*vlists,**kw):
         else:
             val = str(val)
         lines.append((v,val,units))
-    valwidth = max([len(val) for v,val,units in lines])
+    valwidth = max([len(val) for v,val,units in lines if len(val) <= 10])
     for v,val,units in lines:
         print('{0:<{width}s} = {1:<{valwidth}s} {2}'.format(v,val,units,width=width,valwidth=valwidth))
 
