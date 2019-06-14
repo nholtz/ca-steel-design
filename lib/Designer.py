@@ -553,12 +553,40 @@ class Part(object):
     def __getitem__(self,keys):
         return self.get(keys)
 
-    def __call__(self,keys):
-        return self.get(keys)
-    
     def __add__(self,other):
         return PartSet(self,other)
 
+    def show(self,keys=None):
+        """Show variables in same form as show() function. If keys is None,
+        show all with _doc first.  keys can be like in show - ie, expressions,
+        scales."""
+        v = self.vars()
+        if keys is None:
+            pairs = sorted([(k.lower(),k) for k in v.keys()])
+            keys = ','.join([o for k,o in pairs])
+        show(keys,data=v)
+
+    def extract(self,keys):
+        """return a part containing only the named keys.  Allow ...,new=old,...
+        to rename the key from old to new."""
+        pairs = []
+        for k in keys.split(','):
+            k = k.strip()
+            if '=' in k:
+                n,k = k.split('=',1)
+                n = n.strip()
+                k = k.strip()
+            else:
+                n = k
+            pairs.append((n,k))
+        d = {n:getattr(self,k) for n,k in pairs}
+        return CMPart('A Portion of '+self._doc,**d)
+
+    def __call__(self,keys):
+        return self.extract(keys)
+
+class CMPart(Part):
+    
     def __enter__(self):
         """Add all attributes/values to the set of global variables.
         Save enough state so that they can be restored when the context
@@ -593,23 +621,7 @@ class Part(object):
             del globs[k]              # or delete them if they were newly created
         del self.__saved__
         return False              # to re-raise exceptions
-
-    def show(self,keys=None):
-        """Show variables in same form as show() function. If keys is None,
-        show all with _doc first.  keys can be like in show - ie, expressions,
-        scales."""
-        v = self.vars()
-        if keys is None:
-            pairs = sorted([(k.lower(),k) for k in v.keys()])
-            keys = ','.join([o for k,o in pairs])
-        show(keys,data=v)
-
-    def extract(self,keys):
-        """return a part containing only the named keys"""
-        keys = [k.strip() for k in keys.split(',')]
-        d = {k:getattr(self,k) for k in keys}
-        return self.__class__('Part of '+self._doc,**d)
-
+    
 
 class PartSet(object):
     
