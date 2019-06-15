@@ -585,6 +585,9 @@ class Part(object):
     def __call__(self,keys):
         return self.extract(keys)
 
+    def all(self):
+        return CMPart(**self.vars())
+
 class CMPart(Part):
     
     def __enter__(self):
