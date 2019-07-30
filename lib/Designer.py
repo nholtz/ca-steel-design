@@ -587,6 +587,15 @@ class Part(object):
 
     def all(self):
         return CMPart(**self.vars())
+    
+def makePart(cls):
+    """Returns an object of type Part from the class definition and class attributes
+    of 'cls'.  Intended to be used as a decorator so we can use class definitions
+    to build parts (syntactic sugar)."""
+    dct = cls.__dict__
+    vars = dict([pair for pair in dct.items() if not pair[0].startswith('__')])
+    prt = Part(dct.get('__doc__',''),**vars)
+    return prt
 
 class CMPart(Part):
     
