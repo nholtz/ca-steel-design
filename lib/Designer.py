@@ -14,9 +14,9 @@ from IPython import get_ipython
 from utils import SVG, show, sfrounds, sfround, get_locals_globals, isfloat, Recorder
 
 # fixup display() of strings; see display() help
-plain = get_ipython().display_formatter.formatters['text/plain']
 def str_formatter(str,pp,cycle):
     return pp.text(str)
+plain = get_ipython().display_formatter.formatters['text/plain']
 plain.for_type(str,str_formatter)
 
 class CheckerError(Exception):
@@ -226,10 +226,11 @@ class DesignNotes(object):
         d.update(kwargs)
         if self.var:
             d[self.var] = val
-        self._record.append([label,_varlist,d,None])
+        rec = (label,_varlist,d)
+        cell = None
         if self.trace:
-            dcell = display(self.fmt_record(self._record[-1]),display_id=True)
-            self._record[-1][3] = dcell
+            cell = display(self.fmt_record(rec),display_id=True)
+        self._record.append((rec,cell))
         ##return val
 
     def fmt_check(self,chk,width=None):
@@ -241,9 +242,9 @@ class DesignNotes(object):
             return "    {0:<{1}}  OK \n      ({2})".format(label+'?',width,fmt_dict(_vars,_varlist))
         return "    {0:<{1}}  NG! *****\n      ({2})".format(label+'?',width,fmt_dict(_vars,_varlist))
     
-    def fmt_record(self,rec,width=None,var=None,govval=None,nsigfigs=4,showvars=True):
+    def fmt_record(self,rec,width=None,var=None,governs=False,nsigfigs=4,showvars=True):
         """Format a computation record for display."""
-        label,_varlist,_vars,dcell = rec
+        label,_varlist,_vars = rec
         _vars = _vars.copy()
         if width is None:
             width = len(label)
@@ -254,9 +255,8 @@ class DesignNotes(object):
             val = _vars.pop(var)
             ##print(val, type(val))
             ans += '{0} = {1}'.format(var,fmt_quantity(val,nsigfigs=nsigfigs,sep=' '))
-            if govval is not None:
-                if val == govval:
-                    ans += '    <<<--- GOVERNS'
+            if governs:
+                ans += '    <<<--- GOVERNS'
         if _vars and showvars:
             ans += '\n       ('+fmt_dict(_vars)+')'
         return ans
@@ -306,13 +306,14 @@ class DesignNotes(object):
         hd += ':'
         print(hd)
         print('-'*len(hd))
-        width = max([len(l) for l,v,d,c in self._record])
+        width = max([len(l) for (l,v,d),c in self._record])
         
         govval = None
         if var:
-            govval = self.selector([d[var] for l,v,d,c in self._record])
-        for rec in self._record:
-            print(self.fmt_record(rec,var=var,width=width+1,govval=govval,nsigfigs=self.nsigfigs,showvars=False))
+            govval = self.selector([d[var] for (l,v,d),c in self._record])
+        for (l,v,d),c in self._record:
+            print(self.fmt_record((l,v,d),var=var,width=width+1,governs=govval is not None and govval == d.get(var,None),
+                                  nsigfigs=self.nsigfigs,showvars=False))
 
         if govval is not None:
             print()
@@ -321,11 +322,10 @@ class DesignNotes(object):
             print('   ','-'*len(h))
             print('      ','{0} = {1}'.format(var,fmt_quantity(govval,self.nsigfigs,' ')))
 
-            for _label,_vlist,_vars,_cell in self._record:
-                ##print(govval,_vars.get(var,None))
-                if govval == _vars.get(var,None):
+            for (_label,_vlist,_vars),_cell in self._record:
+                if _cell and govval == _vars.get(var,None):
                     ##print('Updating')
-                    _cell.update(self.fmt_record([_label,_vlist,_vars,_cell],govval=govval))
+                    _cell.update(self.fmt_record((_label,_vlist,_vars),governs=True))
             
     def _get_params(self):
         """Return a dictionary of the values of all parameters (class variables)."""
