@@ -82,7 +82,7 @@ class SST(object):
                     shp = s
                     break
         if shp not in self.sections_by_shp:
-            cols = self.shapes.ix[shp].Propsl
+            cols = self.shapes.loc[shp].Propsl
             self.sections_by_shp[shp] = (self.all.loc[self.all['Shp']==shp])[cols]
         return self.sections_by_shp[shp]
 
@@ -122,7 +122,7 @@ class SST(object):
         for shp in shps:
             t = self.section_table(shp)
             try:
-                ans.append(t.ix[str(dsg)])
+                ans.append(t.loc[str(dsg)])
             except KeyError:
                 pass
         return ans
@@ -221,7 +221,7 @@ class SST(object):
         else:
             d = vars(section)
         df = pd.DataFrame.from_dict(d,orient='index')
-        props = self.props.ix[d.keys()]
+        props = self.props.loc[d.keys()]
         df['Expo'] = props['Expo']
         df['Units'] = props['Unit']
         df['Property Description'] = props['Desc']
@@ -315,7 +315,7 @@ class SST(object):
                 if maxn and len(ixlist) >= maxn:
                     break
 
-        ans = table.ix[ixlist]
+        ans = table.loc[ixlist]
         if newcols:
             cols = pd.DataFrame.from_records(vlist,index=ixlist)
             ans = ans.merge(cols,left_index=True,right_index=True)
@@ -353,8 +353,8 @@ if __name__ == '__main__':
     if 1:
         tl = sst.section_tables(['2L'])
         print(tl)
-        print(tl.ix['2L203x152x25'])
-        print(tl.ix['2L152x152x25'])
+        print(tl.loc['2L203x152x25'])
+        print(tl.loc['2L152x152x25'])
 
     if 1:
         wl = sst.section_tables(['W','WWF'],'Mass')
