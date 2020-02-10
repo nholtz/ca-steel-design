@@ -165,7 +165,7 @@ def show(*vlists,**kw):
                 if scale == '1':
                     scale = None
                 continue
-            if '=' in v:
+            if '=' in v and '>=' not in v and '=>' not in v and '==' not in v:
                 key,expr = v.split('=',1)
             else:
                 key = expr = v
