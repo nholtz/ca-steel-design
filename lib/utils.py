@@ -165,8 +165,9 @@ def show(*vlists,**kw):
                 if scale == '1':
                     scale = None
                 continue
-            if '=' in v and '>=' not in v and '=>' not in v and '==' not in v:
-                key,expr = v.split('=',1)
+            m = re.match(r'^(.*[^<>=!])(=)([^=].*)$',v)
+            if m:
+                key,_,expr = m.groups()
             else:
                 key = expr = v
             names.append((key,expr,scale,locals))
