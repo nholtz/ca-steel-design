@@ -36,7 +36,8 @@ class Properties(object):
 
     def props(self,properties=''):
         props = [x.strip() for x in properties.split(',')]
-        return [getattr(self,x) for x in props if x]
+        p = [getattr(self,x) for x in props if x]
+        return p[0] if len(p) == 1 else p
 
     def __getitem__(self,key):
         return getattr(self,key)
