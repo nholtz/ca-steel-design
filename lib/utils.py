@@ -10,6 +10,7 @@ import inspect
 import numpy as np
 
 from IPython import display
+from IPython.core.magic import register_line_magic
 
 class _defaultFormatter(string.Formatter):
 
@@ -123,17 +124,67 @@ def get_locals_globals(depth=2):
     f = sys._getframe(depth)
     return f.f_locals,f.f_globals
 
+def se_split(s):
+    """Split a comma delimited string into sub-expressions.  Commas
+    are NOT delimiters when enclosed in strings or brackets.
+    sesplit('a,b(2,3),c,') => ['a', 'b(2,3)', 'c', '']
+    sesplit('a,"(2,3)",c')  => ['a', '"(2,3)"', 'c']
+    """
+    ans = []
+    i = 0     # start of substring
+    j = 0
+    lev = 0   # bracket count
+    sd = ''   # string delimiter
+    for j  in range(len(s)):
+        if sd:                # if inside string
+            if s[j] == sd:    # see if it closes
+                sd = ''
+            continue
+        if s[j] == '"' or s[j] == "'":  # are we starting a string?
+            sd = s[j]
+            continue
+        if s[j] in '([{':     # are we entering a bracket region?
+            lev += 1
+            continue
+        if s[j] in ')]}':     # are we leaving a bracket region?
+            lev -= 1
+            if lev < 0:
+                lev = 0
+            continue
+        if lev > 0:           # are we inside a bracket region?
+            continue          # if so, ignore commas
+        if s[j] == ',':       # found a comma outside? 
+            ans.append(s[i:j].strip())  # then snarf the substring before it
+            i = j+1
+    else:
+        if i <= len(s):
+            ans.append(s[i:].strip())
+    return ans
+
+@register_line_magic
 def show(*vlists,**kw):
-    """Display the values of all variables named in
-    an arbitrary number of comma-delimited strings. depth=0
-    is number of levels above calling level; nsf=4 is number
-    of sig figs for floats. vlist elements beginning with a '*'
-    give scales to apply to following values.  A None or
-    bare * or *1 cancels
-    the scales.  EG:   show('A,*1E3,Sz,Zx,*,Fy')"""
+    """Display the values of all variables and expressions named in
+    an arbitrary number of comma-delimited strings.  vlist elements 
+    beginning with a '*' give scales to apply to following values.  
+    A None or bare * or *1 cancels the scales.  
+    
+    EG:   %show A,*1E3,Sz,Zx,*,Fy
+    or: show('A,*1E3,Sz,Zx,*,Fy')
+    
+    When called as a normal function, keyword arguments can supply
+    additional data: 
+    depth=1 is number of levels above calling level; 
+    nsf=4 is number of sig figs for floats;
+    object=None gives an object whose vars() are added to the
+        local variables;
+    date={} gives a dictionary whose values are added to the
+        local variables."""
     
     depth = kw.get('depth',0)
-    locals,globals = get_locals_globals(depth=depth+2) # locals in the caller
+    locals,globals = get_locals_globals(depth=depth+2+1) # locals in the caller (another 1 added for line magic)
+    if depth == 0 and len(locals) == 2 and 'kw' in locals and 'vlists' in locals:
+        locals,globals = get_locals_globals(depth=depth+2+2)  # horrible hack! need diff depth if called as function
+    ##display.display(locals.keys())
     nsigfig = kw.get('nsf',4)
     obj = kw.get('object',None)
     if obj:
@@ -159,7 +210,7 @@ def show(*vlists,**kw):
         if callable(getattr(el,'vars',None)):
             locals = el.vars()
             continue
-        for v in re.split(r'\s*,\s*',el.strip()):
+        for v in se_split(el):
             if v.startswith('*'):
                 scale = v[1:].strip()
                 if scale == '1':
@@ -184,6 +235,8 @@ def show(*vlists,**kw):
                 if '^' in s:
                     ss = '**'.join(s.split('^'))
                     S = float(eval(ss))
+                elif '**' in s:
+                    S = float(eval(s))
                 else:
                     S = float(s)
                 val /= S
