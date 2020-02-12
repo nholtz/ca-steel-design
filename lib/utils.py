@@ -129,6 +129,7 @@ def se_split(s):
     are NOT delimiters when enclosed in strings or brackets.
     sesplit('a,b(2,3),c,') => ['a', 'b(2,3)', 'c', '']
     sesplit('a,"(2,3)",c')  => ['a', '"(2,3)"', 'c']
+    Splitting stops at a '#' not enclosed in string or brackets.
     """
     ans = []
     i = 0     # start of substring
@@ -139,7 +140,7 @@ def se_split(s):
         if sd:                # if inside string
             if s[j] == sd:    # see if it closes
                 sd = ''
-            continue
+            continue          # otherwise, skip it.
         if s[j] == '"' or s[j] == "'":  # are we starting a string?
             sd = s[j]
             continue
@@ -156,6 +157,11 @@ def se_split(s):
         if s[j] == ',':       # found a comma outside? 
             ans.append(s[i:j].strip())  # then snarf the substring before it
             i = j+1
+            continue
+        if s[j] == '#':
+            ans.append(s[i:j].strip())
+            i = len(s)+1
+            break
     else:
         if i <= len(s):
             ans.append(s[i:].strip())
