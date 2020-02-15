@@ -9,8 +9,16 @@ import imghdr
 import inspect
 import numpy as np
 
-from IPython import display
-from IPython.core.magic import register_line_magic
+try:
+    __SHELL = get_ipython()
+    def get_locals_globals():
+        global __SHELL
+        return __SHELL.user_ns, __SHELL.user_global_ns
+    from IPython import display
+    from IPython.core.magic import register_line_magic
+except NameError as e:
+    raise Exception("Requires an IPython kernel - i.e., a jupyter notebook")
+
 
 class _defaultFormatter(string.Formatter):
 
@@ -115,20 +123,22 @@ def sfrounds(x, nsf=4):
             s = s[:-2]
     return s
 
-def get_locals_globals(depth=2):
-    """Return a tuple of (local,globals) relevant to whoever
-    called this."""
-    #locals = sys._getframe(depth).f_locals      # locals in the caller
-    #globals = get_ipython().user_global_ns
-    #return locals,globals
-    f = sys._getframe(depth)
-    return f.f_locals,f.f_globals
+## disabled Feb 14, 2020. I don't think we want to do it this way any more.
+## use shell.ev instead
+##def get_locals_globals(depth=2):
+##    """Return a tuple of (local,globals) relevant to whoever
+##    called this."""
+##    #locals = sys._getframe(depth).f_locals      # locals in the caller
+##    #globals = get_ipython().user_global_ns
+##    #return locals,globals
+##    f = sys._getframe(depth)
+##    return f.f_locals,f.f_globals
 
 def se_split(s):
     """Split a comma delimited string into sub-expressions.  Commas
     are NOT delimiters when enclosed in strings or brackets.
     sesplit('a,b(2,3),c,') => ['a', 'b(2,3)', 'c', '']
-    sesplit('a,"(2,3)",c')  => ['a', '"(2,3)"', 'c']
+    sesplit('a,"(2,3",c')  => ['a', '"(2,3"', 'c']
     Splitting stops at a '#' not enclosed in string or brackets.
     """
     ans = []
@@ -179,29 +189,27 @@ def show(*vlists,**kw):
     
     When called as a normal function, keyword arguments can supply
     additional data: 
-    depth=1 is number of levels above calling level; 
     nsf=4 is number of sig figs for floats;
-    object=None gives an object whose vars() are added to the
+    object=None gives an object whose vars() are added as
         local variables;
-    date={} gives a dictionary whose values are added to the
+    data={} gives a dictionary whose values are added as
         local variables."""
-    
-    depth = kw.get('depth',0)
-    locals,globals = get_locals_globals(depth=depth+2+1) # locals in the caller (another 1 added for line magic)
-    if depth == 0 and len(locals) == 2 and 'kw' in locals and 'vlists' in locals:
-        locals,globals = get_locals_globals(depth=depth+2+2)  # horrible hack! need diff depth if called as function
-    ##display.display(locals.keys())
-    nsigfig = kw.get('nsf',4)
-    obj = kw.get('object',None)
-    if obj:
-        locals = locals.copy()
-        locals.update(vars(obj))
-    dct = kw.get('data',None)
-    if dct:
-        locals = locals.copy()
-        locals.update(dct)
 
-    def _eval(e,locals=locals,globals=globals):
+    _locals,_globals = get_locals_globals()
+    
+    nsigfig = kw.pop('nsf',4)
+    obj = kw.pop('object',None)
+    if obj:
+        _locals = _locals.copy()
+        _locals.update(vars(obj))
+    dct = kw.pop('data',None)
+    if dct:
+        _locals = _locals.copy()
+        _locals.update(dct)
+    if kw:
+        raise ValueError('Invalid keyword arguments: '+' '.join(kw.keys()))
+
+    def _eval(e,locals=_locals,globals=_globals):
         try:
             return eval(e,globals,locals)
         except:
@@ -214,7 +222,7 @@ def show(*vlists,**kw):
             scale = None
             continue
         if callable(getattr(el,'vars',None)):
-            locals = el.vars()
+            _locals = el.vars()
             continue
         for v in se_split(el):
             if v.startswith('*'):
@@ -227,7 +235,7 @@ def show(*vlists,**kw):
                 key,_,expr = m.groups()
             else:
                 key = expr = v
-            names.append((key,expr,scale,locals))
+            names.append((key,expr,scale,_locals))
     width = max([len(v) for v,e,s,l in names])
     lines = []
     for v,e,s,l in names:

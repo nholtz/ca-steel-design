@@ -262,7 +262,7 @@ class DesignNotes(object):
         return ans
 
     def show(self,*vlists):
-        show(*vlists,depth=1)
+        show(*vlists,object=self)
             
     def summary(self,*vars):
         """Display a summary of all recorded notes, checks, records."""
@@ -271,7 +271,7 @@ class DesignNotes(object):
             print("Values Used:")
             print("============")
             print()
-            show(*vars,depth=1)
+            show(*vars)
             
         var = self.var
         hd = 'Summary of '
@@ -575,7 +575,7 @@ class Part(object):
     def show(self,keys=None):
         """Show variables in same form as show() function. If keys is None,
         show all with _doc first.  keys can be like in show - ie, expressions,
-        scales."""
+        scales, label=expr, etc.."""
         v = self.vars()
         if keys is None:
             pairs = sorted([(k.lower(),k) for k in v.keys()])
