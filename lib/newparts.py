@@ -1,5 +1,7 @@
 #from Designer import Part, CMPart
 
+from utils import show
+
 class Part:
     
     def __init__(self,names=""):
@@ -65,6 +67,16 @@ class Part:
                     if k not in ans:
                         ans[k] = v
         return ans
+
+    def show(self,keys=None):
+        """Show variables in same form as show() function. If keys is None,
+        show all with _doc first.  keys can be like in show - ie, expressions,
+        scales, label=expr, etc.."""
+        v = self.ns()
+        if keys is None:
+            pairs = sorted([(k.lower(),k) for k in v.keys()])
+            keys = ','.join([o for k,o in pairs])
+        show(keys,data=v)
 
 def makePart(cls):
     """Returns an object of type Part from the class definition and class attributes
