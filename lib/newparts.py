@@ -4,57 +4,14 @@ from utils import show
 
 class PartMeta(type):
     
+    def __call__(cls,*args,**kwargs):
+        raise TypeError("It is not possible to create an instance of this class: "+repr(cls))
+    
     def __getitem__(cls,*keys):
-        return cls._only(*keys)
-
-class Part(metaclass=PartMeta):
-    
-    def __init__(self,names=""):
-        self.__names = [k.strip() for k in names.split(',') if k.strip()]
- 
-    @classmethod
-    def __enter__(cls):
-        """Add all attributes/values to the set of global variables.
-        Save enough state so that they can be restored when the context
-        manager exits."""
-        if not hasattr(cls,'__saved'):
-            setattr(cls,'__saved',[])
-        dct = cls.__dict__
-        _new = []                # save a list of newly added variables
-        _old = {}                # remember values of those that already exist in ns.
-        ns = get_ipython().user_ns  # get the ns for the user
-        for k,v in dct.items():
-            if k in ns:
-                _old[k] = ns[k]
-            else:
-                _new.append(k)
-            ns[k] = v
-        cls.__saved.append((_new,_old))
-        print('Push:',dct.keys(),_new,_old)
-        return self
-    
-    @classmethod
-    def __exit__(cls,*l):
-        """When the context exits, restore the global values to what they
-        were before entering."""
-        _new,_old = cls.__saved.pop()
-        print('Pop:',_new,_old)
-        ns = get_ipython().user_ns  # get the ns for the user
-        for k,v in _old.items():
-            ns[k] = v              # restore old values
-        for k in _new:
-            del ns[k]              # or delete them if they were newly created
-        if not cls.__saved:
-            del cls.__saved
-        return False              # to re-raise exceptions
-    
-    
-    @classmethod
-    def _only(cls,*nameslist):
         newdct = {}
         cls_ns = None
         dct = cls.ns()
-        for names in nameslist:
+        for names in keys:
             for k in names.split(','):
                 k = k.strip()
                 if not k:
@@ -71,8 +28,41 @@ class Part(metaclass=PartMeta):
         newdct['__doc__'] = dct.get('__doc__')
         newname = cls.__name__ + '_Partial'
         return type(newname,cls.__bases__,newdct)
+
+    def __enter__(cls):
+        """Add all attributes/values to the set of global variables.
+        Save enough state so that they can be restored when the context
+        manager exits."""
+        if not hasattr(cls,'__saved'):
+            cls.__saved = []
+        dct = cls.__dict__
+        _new = []                # save a list of newly added variables
+        _old = {}                # remember values of those that already exist in ns.
+        ns = get_ipython().user_ns  # get the ns for the user
+        for k,v in dct.items():
+            if k in ns:
+                _old[k] = ns[k]
+            else:
+                _new.append(k)
+            ns[k] = v
+        cls.__saved.append((_new,_old))
+##        print('Push:',dct.keys(),_new,_old)
+        return cls
     
-    @classmethod
+    def __exit__(cls,*l):
+        """When the context exits, restore the global values to what they
+        were before entering."""
+        _new,_old = cls.__saved.pop()
+##        print('Pop:',_new,_old)
+        ns = get_ipython().user_ns  # get the ns for the user
+        for k,v in _old.items():
+            ns[k] = v              # restore old values
+        for k in _new:
+            del ns[k]              # or delete them if they were newly created
+        if not cls.__saved:
+            del cls.__saved
+        return False              # to re-raise exceptions
+    
     def ns(cls):
         """Return namespace."""
         ans = {}
@@ -80,21 +70,25 @@ class Part(metaclass=PartMeta):
             if c in (Part,object):
                 continue
             for k,v in c.__dict__.items():
-                if not k.startswith('__'):
+                if not k.startswith('_'):
                     if k not in ans:
                         ans[k] = v
         return ans
 
-    def show(self,keys=None):
+    def show(cls,keys=None):
         """Show variables in same form as show() function. If keys is None,
         show all with _doc first.  keys can be like in show - ie, expressions,
         scales, label=expr, etc.."""
-        v = self.ns()
+        v = cls.ns()
         if keys is None:
             pairs = sorted([(k.lower(),k) for k in v.keys()])
             keys = ','.join([o for k,o in pairs])
         show(keys,data=v)
 
+class Part(metaclass=PartMeta):
+    
+    pass
+     
 def makePart(cls):
     """Returns an object of type Part from the class definition and class attributes
     of 'cls'.  Intended to be used as a decorator so we can use class definitions
