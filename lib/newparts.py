@@ -2,67 +2,84 @@
 
 from utils import show
 
-class Part:
+class PartMeta(type):
+    
+    def __getitem__(cls,*keys):
+        return cls._only(*keys)
+
+class Part(metaclass=PartMeta):
     
     def __init__(self,names=""):
         self.__names = [k.strip() for k in names.split(',') if k.strip()]
-        
-    def __enter__(self):
+ 
+    @classmethod
+    def __enter__(cls):
         """Add all attributes/values to the set of global variables.
         Save enough state so that they can be restored when the context
         manager exits."""
-        if hasattr(self,'__saved'):
-            raise Exception('Object already is a context manager. Cannot be one again.')
-        dct = vars(self)
+        if not hasattr(cls,'__saved'):
+            setattr(cls,'__saved',[])
+        dct = cls.__dict__
         _new = []                # save a list of newly added variables
         _old = {}                # remember values of those that already exist in ns.
         ns = get_ipython().user_ns  # get the ns for the user
-        for k in self.__names:
-            if not hasattr(self,k):
-                raise KeyError('Invalid attribute: '+k)
+        for k,v in dct.items():
             if k in ns:
                 _old[k] = ns[k]
             else:
                 _new.append(k)
-            ns[k] = getattr(self,k)
-        self.__saved = (_new,_old)
+            ns[k] = v
+        cls.__saved.append((_new,_old))
+        print('Push:',dct.keys(),_new,_old)
         return self
     
-    def __exit__(self,*l):
+    @classmethod
+    def __exit__(cls,*l):
         """When the context exits, restore the global values to what they
         were before entering."""
-        _new,_old = self.__saved
+        _new,_old = cls.__saved.pop()
+        print('Pop:',_new,_old)
         ns = get_ipython().user_ns  # get the ns for the user
         for k,v in _old.items():
             ns[k] = v              # restore old values
         for k in _new:
             del ns[k]              # or delete them if they were newly created
-        del self.__saved
+        if not cls.__saved:
+            del cls.__saved
         return False              # to re-raise exceptions
     
     
     @classmethod
-    def only(cls,names=''):
+    def _only(cls,*nameslist):
         newdct = {}
-        dct = cls.__dict__
-        for k in names.split(','):
-            k = k.strip()
-            if k and k in dct:
-                newdct[k] = dct[k]
+        cls_ns = None
+        dct = cls.ns()
+        for names in nameslist:
+            for k in names.split(','):
+                k = k.strip()
+                if not k:
+                    continue
+                if '=' in k:
+                    k,e = k.split('=',1)
+                    k = k.strip()
+                    if cls_ns is None:
+                        cls_ns = cls.ns()
+                    v = eval(e,None,cls_ns)
+                    newdct[k] = v
+                else:
+                    newdct[k] = dct[k]
         newdct['__doc__'] = dct.get('__doc__')
-        newname = 'Part_of_'+cls.__name__
+        newname = cls.__name__ + '_Partial'
         return type(newname,cls.__bases__,newdct)
     
-    def ns(self):
+    @classmethod
+    def ns(cls):
+        """Return namespace."""
         ans = {}
-        for k,v in vars(self).items():
-            if not k.startswith('__') and not k.startswith('_Part__'):
-                if k not in ans:
-                    ans[k] = v
-        for cls in self.__class__.__mro__:
-            if cls in (Part,object):
+        for c in cls.__mro__:
+            if c in (Part,object):
                 continue
-            for k,v in cls.__dict__.items():
+            for k,v in c.__dict__.items():
                 if not k.startswith('__'):
                     if k not in ans:
                         ans[k] = v
