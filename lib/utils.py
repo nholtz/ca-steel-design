@@ -48,6 +48,7 @@ class _defaultFormatter(string.Formatter):
 _formatter = _defaultFormatter()
 
 def SVG(filename,**kwargs):
+    """Display an SVG image after interpolating kwarg values."""
     with file(filename,"rb") as inf:
         svgdata = inf.read()
     outdata = _formatter.vformat(svgdata,[],kwargs)
@@ -100,7 +101,30 @@ def showImage(basename,rescan=False):
     else:
         raise Exception("Unable to find image '{0}'; Tried these extensions: {1}".format(basename,EXTS))
         
-
+__FIGPATH = None
+        
+def svgfig(filename):
+    global __FIGPATH
+    if __FIGPATH is None:
+        try:
+            with open("IMAGEPATH","r") as ip:
+                lines = ip.readlines()
+            __FIGPATH = [x.strip() for x in lines]
+        except FileNotFoundError:
+            __FIGPATH = ['.']
+    
+    for pfx in __FIGPATH:
+        pathname = os.path.join(pfx,filename)
+        try:
+            with open(pathname,"rb") as inf:
+                svgdata = inf.read()
+            display.display(display.SVG(svgdata))
+            return
+        except FileNotFoundError:
+            continue
+    raise FileNotFoundError(f"Unable to display svg file '{filename}'. Tried: "+', '.join([os.path.join(x,filename) for x in __FIGPATH]))
+        
+        
 _FLOATS = [float,np.float64,np.float32,np.float]
 
 def isfloat(x):
