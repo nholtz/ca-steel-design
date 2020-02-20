@@ -48,13 +48,14 @@ class _defaultFormatter(string.Formatter):
 _formatter = _defaultFormatter()
 
 def SVG(filename,**kwargs):
-    """Display an SVG image after interpolating kwarg values."""
+    """Return an SVG image after interpolating kwarg values."""
     with file(filename,"rb") as inf:
         svgdata = inf.read()
     outdata = _formatter.vformat(svgdata,[],kwargs)
     return display.SVG(data=outdata)
 
 def _test_svg(bstream,fileobj):
+    """Return indicator if stream or file is svg file.  Made for use in ImageMagik"""
     if fileobj:
         fileobj.seek(0)
         data = fileobj.read(6)
@@ -103,7 +104,9 @@ def showImage(basename,rescan=False):
         
 __FIGPATH = None
         
-def svgfig(filename):
+def figure(filename):
+    """Display an svg file given by filename. Use IMAGEPATH, if it exists,
+    to search for the file."""
     global __FIGPATH
     if __FIGPATH is None:
         try:

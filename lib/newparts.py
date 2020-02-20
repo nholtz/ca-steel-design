@@ -7,7 +7,10 @@ class PartMeta(type):
     def __call__(cls,*args,**kwargs):
         raise TypeError("It is not possible to create an instance of this class: "+repr(cls))
     
-    def __getitem__(cls,*keys):
+    def __getitem__(cls,keys):
+        if not type(keys) == type(()):
+            keys = (keys,)
+        ##print(cls,keys)
         newdct = {}
         cls_ns = None
         dct = cls.ns()
@@ -27,7 +30,7 @@ class PartMeta(type):
                     newdct[k] = dct[k]
         newdct['__doc__'] = dct.get('__doc__')
         newname = cls.__name__ + '_Partial'
-        return type(newname,cls.__bases__,newdct)
+        return PartMeta(newname,cls.__bases__,newdct)
 
     def __enter__(cls):
         """Add all attributes/values to the set of global variables.
@@ -95,12 +98,5 @@ def makePart(cls):
     to build parts (syntactic sugar)."""
     dct = cls.__dict__
     bases = cls.__bases__
-    if Part not in cls.mro():
-        if len(bases) > 0 and bases[-1] is object:
-            bases = bases[:-1] + (Part,) + bases[-1:]
-        else:
-            bases = bases + (Part,)
-        newdct = {k:v for k,v in dct.items() if not k.startswith('__')}
-        newdct['__doc__'] = dct.get('__doc__')
-        return type(cls.__name__,bases,newdct)
-    return cls
+    newdct = {k:v for k,v in dct.items() if not k.startswith('__')}
+    return PartMeta(cls.__name__,bases,newdct)
