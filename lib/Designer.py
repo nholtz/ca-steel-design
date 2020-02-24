@@ -522,178 +522,112 @@ def _get(dct,keys):
     if len(keys) == 1:
         return ans[0]
     return ans
-    
-    
-class Part(object):
-    
-    def __init__(self,_doc='',**keywd):
-        self._doc = _doc
-        self.set(**keywd)
-            
-    def set(self,**keywd):
-        for k,v in keywd.items():
-            setattr(self,k,v)
-            
-    def copyfrom(self,keys,*others):
-        if type(keys) == type('') and keys:
-            keys = set([k.strip() for k in keys.split(',')])
-        else:
-            others = (keys,) + others
-            keys = None
-        for other in others:
-            for k,v in other.vars().items():
-                if keys is None or k in keys:
-                    setattr(self,k,v)
-        return self
-        
 
-    def inherit(self,keys,*others):
-        if type(keys) == type('') and keys:
-            keys = set([k.strip() for k in keys.split(',')])
-        else:
-            others = (keys,) + others
-            keys = None
-        for other in others:
-            for k,v in other.vars().items():
-                if keys is None or k in keys:
-                    if not hasattr(self,k):
-                        setattr(self,k,v)
-        return self
+################################################################
+################################################################
+################ Parts
+################################################################
 
-    def get(self,keys):
-        return _get(self.vars(),keys)
+class PartMeta(type):
     
-    def vars(self):
-        return vars(self)
+    def __call__(cls,*args,**kwargs):
+        raise TypeError("It is not possible to create an instance of this class: "+repr(cls))
     
-    def __getitem__(self,keys):
-        return self.get(keys)
+    def __getitem__(cls,keys):
+        if not type(keys) == type(()):
+            keys = (keys,)
+        ##print(cls,keys)
+        newdct = {}
+        cls_ns = None
+        dct = cls.ns()
+        for names in keys:
+            for k in names.split(','):
+                k = k.strip()
+                if not k:
+                    continue
+                if '=' in k:
+                    k,e = k.split('=',1)
+                    k = k.strip()
+                    if cls_ns is None:
+                        cls_ns = (globals(),cls.ns())
+                    v = eval(e,*cls_ns)
+                    newdct[k] = v
+                else:
+                    newdct[k] = dct[k]
+        newdct['__doc__'] = dct.get('__doc__')
+        newname = cls.__name__ + '_Partial'
+        return PartMeta(newname,cls.__bases__,newdct)
 
-    def __add__(self,other):
-        return PartSet(self,other)
+    def __enter__(cls):
+        """Add all attributes/values to the set of global variables.
+        Save enough state so that they can be restored when the context
+        manager exits."""
+        if not hasattr(cls,'__saved'):
+            cls.__saved = []
+        dct = cls.__dict__
+        _new = []                # save a list of newly added variables
+        _old = {}                # remember values of those that already exist in ns.
+        ns = get_ipython().user_ns  # get the ns for the user
+        for k,v in dct.items():
+            if k in ns:
+                _old[k] = ns[k]
+            else:
+                _new.append(k)
+            ns[k] = v
+        cls.__saved.append((_new,_old))
+##        print('Push:',dct.keys(),_new,_old)
+        return cls
+    
+    def __exit__(cls,*l):
+        """When the context exits, restore the global values to what they
+        were before entering."""
+        _new,_old = cls.__saved.pop()
+##        print('Pop:',_new,_old)
+        ns = get_ipython().user_ns  # get the ns for the user
+        for k,v in _old.items():
+            ns[k] = v              # restore old values
+        for k in _new:
+            del ns[k]              # or delete them if they were newly created
+        if not cls.__saved:
+            del cls.__saved
+        return False              # to re-raise exceptions
+    
+    def ns(cls):
+        """Return namespace."""
+        ans = {}
+        for c in cls.__mro__:
+            if c in (Part,object):
+                continue
+            for k,v in c.__dict__.items():
+                if not k.startswith('_'):
+                    if k not in ans:
+                        ans[k] = v
+        return ans
 
-    def show(self,keys=None):
+    def show(cls,keys=None):
         """Show variables in same form as show() function. If keys is None,
         show all with _doc first.  keys can be like in show - ie, expressions,
         scales, label=expr, etc.."""
-        v = self.vars()
+        v = cls.ns()
         if keys is None:
             pairs = sorted([(k.lower(),k) for k in v.keys()])
             keys = ','.join([o for k,o in pairs])
         show(keys,data=v)
 
-    def extract(self,keys):
-        """return a part containing only the named keys.  Allow ...,new=old,...
-        to rename the key from old to new."""
-        pairs = []
-        for k in keys.split(','):
-            k = k.strip()
-            if '=' in k:
-                n,k = k.split('=',1)
-                n = n.strip()
-                k = k.strip()
-            else:
-                n = k
-            pairs.append((n,k))
-        d = {n:getattr(self,k) for n,k in pairs}
-        return CMPart('A Portion of '+self._doc,**d)
-
-    def __call__(self,keys):
-        return self.extract(keys)
-
-    def all(self):
-        return CMPart(**self.vars())
+class Part(metaclass=PartMeta):
     
+    pass
+     
 def makePart(cls):
     """Returns an object of type Part from the class definition and class attributes
     of 'cls'.  Intended to be used as a decorator so we can use class definitions
     to build parts (syntactic sugar)."""
     dct = cls.__dict__
-    vars = dict([pair for pair in dct.items() if not pair[0].startswith('__')])
-    prt = Part(dct.get('__doc__',''),**vars)
-    return prt
+    bases = cls.__bases__
+    newdct = {k:v for k,v in dct.items() if not k.startswith('__')}
+    return PartMeta(cls.__name__,bases,newdct)
 
-class CMPart(Part):
-    
-    def __enter__(self):
-        """Add all attributes/values to the set of global variables.
-        Save enough state so that they can be restored when the context
-        manager exits."""
-        if hasattr(self,'__saved__'):
-            raise Exception('Object already is a context manager. Cannot be one again.')
-        dct = vars(self)
-        _new = []                # save a list of newly added variables
-        _old = {}                # remember values of those that already exist in globals.
-        f = sys._getframe(1)     # get the globals from the caller
-        globs = f.f_globals
-        for k,v in dct.items():
-            if k.startswith('_'):
-                continue
-            if k in globs:
-                _old[k] = globs[k]
-            else:
-                _new.append(k)
-            globs[k] = v
-        self.__saved__ = (_new,_old)
-        return self
-    
-    def __exit__(self,*l):
-        """When the context exits, restore the global values to what they
-        were before entering."""
-        _new,_old = self.__saved__
-        f = sys._getframe(1)          # restore the global values
-        globs = f.f_globals
-        for k,v in _old.items():
-            globs[k] = v              # restore old values
-        for k in _new:
-            del globs[k]              # or delete them if they were newly created
-        del self.__saved__
-        return False              # to re-raise exceptions
-    
-
-class PartSet(object):
-    
-    def __init__(self,*all):
-        self.parts = []
-        for p in all:
-            if type(p) in [list,tuple]:
-                for pp in p:
-                    self.addpart(pp)
-                continue
-            if type(p) is self.__class__:
-                for pp in p.parts:
-                    self.addpart(pp)
-                continue
-            self.addpart(p)
-            
-    def addpart(self,part):
-        if type(part) is Part:
-            if part not in self.parts:
-                self.parts.append(part)
-            return
-        raise TypeError('Invalid part type: "{}"'.format(part))
-        
-    def vars(self):
-        ans = {}
-        for p in self.parts:
-            ans.update(p.vars())
-        return ans
-    
-    def get(self,keys):
-        return _get(self.vars(),keys)
-    
-    def __getitem__(self,keys):
-        return self.get(keys)    
-    
-    def __add__(self,other):
-        return self.__class__(self.parts,other)
-
-def extract(keys,*parts):
-    dct = {}
-    for part in reversed(parts):  # that way, priority is left to right
-        dct.update( part.vars() )
-    return _get(dct,keys)
-
+################################################################
 # instantiate the section tables
 
 SST = sst.SST()
