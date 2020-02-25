@@ -614,6 +614,16 @@ class PartMeta(type):
             keys = ','.join([o for k,o in pairs])
         show(keys,data=v)
 
+    def get(cls,keys):
+        v = (globals(),cls.ns())
+        ans = []
+        for k in keys.split(','):
+            k = k.strip()
+            if k:
+                ans.append(eval(k,*v))
+        return ans[0] if len(ans) == 1 else ans
+                
+
 class Part(metaclass=PartMeta):
     
     pass

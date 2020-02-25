@@ -39,6 +39,8 @@ class Properties(object):
         p = [getattr(self,x) for x in props if x]
         return p[0] if len(p) == 1 else p
 
+    get = props
+
     def __getitem__(self,key):
         return getattr(self,key)
 

@@ -61,31 +61,33 @@ def _test_svg(bstream,fileobj):
         data = fileobj.read(6)
     else:
         data = bstream.read(6)
-    if data == '<?xml ':
+    if data == b'<?xml ':
         return 'svg'
     return None
+
 imghdr.tests.append(_test_svg)
 
 EXTS = ['svg','png','jpeg','jpg']
+
+def _display(ifile):
+    itype = imghdr.what(ifile)
+    img = None
+    if itype in ['jpeg','jpg','png']:
+        img = display.Image(filename=ifile,embed=True)
+    elif itype == 'svg':
+        with open(ifile,"rb") as inf:
+            svgdata = inf.read()
+        img = display.SVG(data=svgdata)
+    else:
+        raise Exception("Invalid image type: {0}".format(itype))
+    if img:
+        display.display(img)
 
 def showImage(basename,rescan=False):
     """Display an image whose basename is 'basename'.  If an image
     cannot be found, the user is asked to scan an image, which is
     then installed.  Extensions '.jpg', '.png', '.svg' are tried in
     that order.  If rescan is True, scanning a new image is forced."""
-    def _display(ifile):
-        itype = imghdr.what(ifile)
-        img = None
-        if itype in ['jpeg','png']:
-            img = display.Image(filename=ifile,embed=True)
-        elif itype == 'svg':
-            with file(ifile,"rb") as inf:
-                svgdata = inf.read()
-            img = display.SVG(data=svgdata)
-        else:
-            raise Exception("Invalid image type: {0}".format(itype))
-        if img:
-            display.display(img)
 
     if not rescan:
         for ext in EXTS:
@@ -101,12 +103,23 @@ def showImage(basename,rescan=False):
         _display(ifile)
     else:
         raise Exception("Unable to find image '{0}'; Tried these extensions: {1}".format(basename,EXTS))
-        
+
 __FIGPATH = None
+
+def _strip_quotes(s):
+    if s[0] in ["'",'"'] and s[-1] == s[0]:
+        return s[1:-1]
+    if s.startswith("'''") and s.endswith("'''"):
+        return s[3:-3]
+    if s.startswith('"""') and s.endswith('"""'):
+        return s[3:-3]
+    return s
         
+@register_line_magic
 def figure(filename):
     """Display an svg file given by filename. Use IMAGEPATH, if it exists,
     to search for the file."""
+    filename = _strip_quotes(filename)
     global __FIGPATH
     if __FIGPATH is None:
         try:
@@ -118,14 +131,10 @@ def figure(filename):
     
     for pfx in __FIGPATH:
         pathname = os.path.join(pfx,filename)
-        try:
-            with open(pathname,"rb") as inf:
-                svgdata = inf.read()
-            display.display(display.SVG(svgdata))
-            return
-        except FileNotFoundError:
-            continue
-    raise FileNotFoundError(f"Unable to display svg file '{filename}'. Tried: "+', '.join([os.path.join(x,filename) for x in __FIGPATH]))
+        if os.path.exists(pathname):
+            return _display(pathname)
+
+    raise FileNotFoundError(f"Unable to display file '{filename}'. Tried: "+', '.join([os.path.join(x,filename) for x in __FIGPATH]))
         
         
 _FLOATS = [float,np.float64,np.float32,np.float]
@@ -263,11 +272,13 @@ def show(*vlists,**kw):
             else:
                 key = expr = v
             names.append((key,expr,scale,_locals))
-    width = max([len(v) for v,e,s,l in names])
+    widths = [len(v) for v,e,s,l in names]
+    width = max(widths) if len(widths) > 0 else 0
     lines = []
     for v,e,s,l in names:
         units = ''
         val = _eval(e,locals=l)
+        isnum = type(val) not in [type('')]
         if hasattr(val,'magnitude') and hasattr(val,'units'):
             units = str(val.units)
             val = val.magnitude
@@ -286,9 +297,10 @@ def show(*vlists,**kw):
                 val += ' * ' + s
         else:
             val = str(val)
-        lines.append((v,val,units))
-    valwidth = max([len(val) for v,val,units in lines if len(val) <= 10])
-    for v,val,units in lines:
+        lines.append((v,val,units,isnum))
+    widths = [len(val) for v,val,units,isnum in lines if isnum]
+    valwidth = max(widths) if len(widths) > 0 else 0
+    for v,val,units,isnum in lines:
         print('{0:<{width}s} = {1:<{valwidth}s} {2}'.format(v,val,units,width=width,valwidth=valwidth))
 
 def call(func,shape,map={},**kwargs):
