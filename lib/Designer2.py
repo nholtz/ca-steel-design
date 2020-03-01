@@ -11,7 +11,7 @@ import datetime
 import ipywidgets as widgets
 from IPython.display import display, clear_output
 from IPython import get_ipython
-from utils import SVG, show, sfrounds, sfround, get_locals_globals, isfloat, Recorder, figure
+from utils import SVG, show, sfrounds, sfround, get_locals_globals, isfloat, Recorder, figure, se_split
 
 # fixup display() of strings; see display() help
 def str_formatter(str,pp,cycle):
@@ -28,6 +28,9 @@ class CheckerWarning(Warning):
 def Error(msg):
     raise CheckerError(msg)
 
+def Warn(s):
+    print('***** WARNING:',s,'*****')
+    
 def fmt_quantity(v,nsigfigs=4,sep=''):
     u = ''
     if hasattr(v,'magnitude') and hasattr(v,'units'):
@@ -58,115 +61,42 @@ def fmt_dict(d,varlist='',nsigfigs=4):
     for k in sorted(d.keys()):
         ans.append(_fmt_pair(k,d[k]))
     return ', '.join(ans)
-            
-def table_search(v,table):
-    """Search a list of (val,data) tuples representing a table, for the
-    first row where v-delta <= val.  Return the data.  delta = (val[i+1]-val[i])/2.
-    (half distance to next larger val)."""
-    last = len(table)-1
-    for i in range(last+1):
-        k = i+1 if i < last else last
-        delta = (table[k][0] - table[k-1][0])/2.
-        if v-table[i][0] <= delta:
-            return table[i][1]
-    Error('Unable to find value in table')           
 
-class Param(object):
-    
-    """A Param is one settable parameter, to be used to obtain
-    input data for a function.  By default, it uses pretty well the same
-    widget abbreviations as @interact.  Values can be obtained via
-    widget, or by static declaration."""
-    
-    __COUNTER__ = 0   ## to maintain relative ordering of widgets
-      
-    def __init__(self,arg,**kwargs):
-        self._relposn = self.__next__()
-        self.widget = None
-        self.value = None
-        
-        if arg is None:
-            return
-        
-        if type(arg) in [int,float,str]:
-            self.value = arg
-            widg = {int:widgets.IntText,float:widgets.FloatText,str:widgets.Text}[type(arg)]
-            self.widget = widg(value=str(arg))
+
+def _get(dct,keys):
+    """Return the value, in dct, of all comma-sperated expressions
+    in keys.  Each key expression can be:
+       - an identifier, or
+       - and identifier=default_value, or
+       - an expression that is evaluated
+    If there is only one key, return a singleton, else return a list of values.
+    eg:  d = dict(a=10,b=20)
+         _get(d,'a,b=40,c=50,a+b') => [10,20,50,30]
+    """
+    ans = []
+    keys = keys.split(',')
+    for k in keys:
+        default = None
+        if '=' in k:
+            k,default = k.split('=',1)
+        k = k.strip()
+        if k in dct:
+            ans.append(dct[k])
+        elif default is not None:
+            ans.append(eval(default,{},dct))
         else:
-            self.widget = self._make_widget(arg)
-                
-        if self.widget is None:
-            Error("'{0}' cannot be made into a widget.".format(arg))
-                
-        if self.widget:
-            self.value = self.widget.value
-            def _update(name,value):
-                self.value = value
-            self.widget.on_trait_change(_update,'value')
+            ans.append(eval(k,{},dct))
+    if len(keys) == 1:
+        return ans[0]
+    return ans
 
-        kwargs = kwargs.copy()
-        if 'value' in kwargs:
-            self.value = kwargs.pop('value')
-            self.widget.value = self.value
-        if 'description' in kwargs:
-            self.widget.description = kwargs.pop('description')
-        if 'disabled' in kwargs:
-            self.widget.disabled = kwargs.pop('disabled')
-                    
-        if kwargs:
-            Error('Unused keyword arguments: '+','.join(kwargs.keys()))
+
+################################################################
+#### DesignNotes
+################################################################
+
+## see Parameters.py for the'needs-to-be-updated' widget thingee.
             
-    @classmethod
-    def __next__(cls):
-        """Increment the class counter and return its new value."""
-        cls.__COUNTER__ += 1
-        return cls.__COUNTER__
-    
-    def _make_tmms(self,arg):
-        """Return (type,min,max,step) for widget abbreviation in arg.
-        arg is "(min,max[, step])" and if any of these are floats, the
-        type is float else int."""
-        inttype = type(0)
-        floattype = type(0.0)
-        numtypes = [inttype,floattype]
-        ans = [None,None,None,None]
-        if len(arg) < 2 or len(arg) > 3:
-            return ans
-        if not all([type(x) in numtypes for x in arg]):
-            return ans
-        ans[0] = int if all([type(x) is inttype for x in arg]) else float
-        ans[1] = ans[0](arg[0])
-        ans[2] = ans[0](arg[1])
-        ans[3] = ans[0](1)
-        if len(arg) == 3:
-            ans[3] = ans[0](arg[2])
-        return ans
-    
-    def _make_widget(self,arg):
-        """Make a widget from the abbreviation in arg."""
-        if isinstance(arg,widgets.Widget):
-            return arg
-        if isinstance(arg,dict):
-            return  (widgets.ToggleButtons if len(arg) <= 3 else widgets.Dropdown)(options=arg)
-        if type(arg) is bool:
-            return widgets.Checkbox(value=arg)
-        if isinstance(arg,list) or isinstance(arg,tuple):
-            if all([isinstance(x,str) for x in arg]):
-                return (widgets.ToggleButtons if len(arg) <= 3 else widgets.Dropdown)(options=arg)
-            if len(arg) > 1 and all([(isinstance(x,tuple) and len(x) == 2 and isinstance(x[0],str)) for x in arg]):
-                return (widgets.ToggleButtons if len(arg) <= 3 else widgets.Dropdown)(options=arg)
-            typ,min,max,step = self._make_tmms(arg)
-            if typ is not None:
-                cls = widgets.FloatSlider if typ is float else widgets.IntSlider
-                return cls(min=min,max=max,step=step,value=(min+max)/2)
-        
-    
-    def __str__(self):
-        return "Param(relposn={0},value={1})".format(self._relposn,self.value)
-    
-    __repr__ = __str__
-    
-    
 class DesignNotes(object):
     
     def __init__(self,var,trace=False,units=None,selector=min,title='',nsigfigs=3,show_params=False):
@@ -326,204 +256,69 @@ class DesignNotes(object):
                 if _cell and govval == _vars.get(var,None):
                     ##print('Updating')
                     _cell.update(self.fmt_record((_label,_vlist,_vars),governs=True))
-            
-    def _get_params(self):
-        """Return a dictionary of the values of all parameters (class variables)."""
-        params = [(p,v) for p,v in inspect.getmembers(self.__class__) if p[0] != '_' and not inspect.ismethod(v)]
-        params = {p:(v.value if isinstance(v,Param) else v) for (p,v) in params}
-        return params
-            
-    def inject_globals(self):
-        """Add all parameters and values to the global namespace."""
-        params = self._get_params()
-        #ip = get_ipython()
-        #ip.push(params)
-        g = self._globals
-        for k,v in params.items():
-            g[k] = v
-        return params
 
-    def run_imported_code(self):
-        if self.__class__.__module__ == '__main__':
-            return
-        mod = sys.modules.get(self.__class__.__module__,None)
-        if mod is None:
-            return
-        if not getattr(mod,'__loaded__',False):
-            return
-        runner = getattr(mod,'__runcode__',None)
-        if not callable(runner):
-            return
-        runner(after=self._execution_count,silent=False)
-        return True
-        
-    def compute(self):
-        """The .compute() method is called by .run() (and thus by .interact()).
-        The default implementation adds all parameters to the global namespace,
-        and executes the rest of the module, if it is an imported file """
-        p = self.inject_globals()
-        print('Time:', datetime.datetime.now().ctime())
-        #print('Globals Set:',', '.join(['{0}={1!r}'.format(k,p[k]) for k in sorted(p.keys(),key=lambda x: x.lower())]))
-        print()
-        return self.run_imported_code()
+    ################################################################ Caution! not yet finished below
 
-    def run(self,show=None,instruct=True):
-        """Extract the values of all relevant parameters (class variables) and call
-        the .compute() method with those as arguments."""
+class DesignNotes_CM(object):
 
-        try:
-            self._execution_count = get_ipython().user_ns['__execution_count__']
-        except KeyError:
-            pass
+    """DesignNotes Context Manager."""
 
-        self._notes = []
-        self._checks = []
-        self._record = []
-        params = self._get_params()
-        
-        fn = self.compute   ## this is the method (function) we will call
-            
-        # find the parameters of the function
-        args,varargs,kwargs,defaults = inspect.getargspec(fn)
-        defargs = []
-        if defaults:
-            defargs = args[-len(defaults):]
-            args = args[:-len(defaults)]
-            
-        for k in args[1:]:
-            if k not in params:
-                Error("Argument '{0}' not defined in {1}".format(k,self.__class__.__name__))
-        
-        # build a dictionary of values, and call the method
-        chkr_args = {k:params[k] for k in args[1:]}
-        if defaults:
-            for k,v in zip(defargs,defaults):
-                chkr_args = params.get(k,v)
-            
-        if show is None:
-            show = self.show_params
-        if show:
-            params = [(p,v) for p,v in inspect.getmembers(self.__class__) if p[0] != '_' and isinstance(v,Param)]
-            params.sort(key=lambda t: t[1]._relposn)
-            width = max([len(p) for p,v in params])
-            print('Parameter Values:')
-            print('=================')
-            print()
-            for p,v in params:
-                print("{0:<{1}} = {2}".format(p,width,v.value))
-            print()
-
-        ans = fn(**chkr_args)
-        if instruct:
-            print("Select the following cell and execute menu item 'Cell / Run All Below'.")
-
-        return
-    
-    nointeract = run    # an alternate spelling of .run()
-
-    def set_widget(self,**kw):
-        """Reset the Param value (widget) for selected class variables."""
-        params = [(p,v) for p,v in inspect.getmembers(self.__class__) if p[0] != '_' and isinstance(v,Param)]
-        params = dict(params)
-        for k,v in kw.items():
-            if k not in params:
-                Error('Name not in set of parameters: {0}'.format(k))
-            if not isinstance(v,Param):
-                Error('Value of name is not of type Param: {0}'.format(k))
-            v._relposn = params[k]._relposn
-            setattr(self.__class__,k,v)
-
-    def set_default(self,**kw):
-        """Reset the default Param value for selected class variables."""
-        params = [(p,v) for p,v in inspect.getmembers(self.__class__) if p[0] != '_' and isinstance(v,Param)]
-        params = dict(params)
-        for k,v in kw.items():
-            if k not in params:
-                Error('Name not in set of parameters: {0}'.format(k))
-            p = params[k]
-            p.value = p.widget.value = v
-
-    def interact(self,show=None,instruct=True):
-        """Display the widgets created by 'Param()' values in the
-        calls variables, in the order defined.  Add a go button
-        with a callback that calls the '.run()' method, which in turn
-        calls the users '.compute()' method."""
-        if show is not None:
-            self.show_params = show
-        # build an ordered list of all members (instance variables) whose value is instance of Param() 
-        # and whose name doesn't start with '_'
-        params = [(p,v) for p,v in inspect.getmembers(self.__class__) if p[0] != '_' and isinstance(v,Param)]
-        params.sort(key=lambda t: t[1]._relposn)
-        # make a list of all the widgets from the list of Param()s
-        ws = []
-        for name,param in params:
-            if param.widget:
-                if param.widget.description == '':
-                    param.widget.description = name
-                ws.append(param.widget)
-        # add a 'Run' button to the list
-        title = self.title if self.title else self.__class__.__name__
-        button = widgets.Button(description="Run {0}".format(title))
-        ws.append(button)
-
-        for w in ws:
-            w.padding = 2
-        
-        container = widgets.VBox()
-        container.children = ws
-        container.result = None
-
-        def call_run(button,instruct=instruct):
-            clear_output(wait=True)
-            button.disabled = True
-            try:
-                container.result = self.run(instruct=instruct)
-            except Exception as e:
-                ip = get_ipython()
-                if ip is None:
-                    container.log.warn("Exception in interact callback: %s", e, exc_info=True)
+    def __init__(self, notes, objattrs, title=None, result=None, record=None, trace=None):
+        if trace is None:
+            trace = notes.trace
+        self.notes = notes
+        self.title = title
+        self.result = result
+        self.record = record
+        self.trace = trace
+        d = {}
+        gns = get_ipython().user_ns
+        for obj,names in objattrs:
+            objns = obj.ns()
+            for expr in se_split(names):
+                if '=' in expr:
+                    target,rhs = [x.strip() for x in expr.split('=',1)]
+                    if rhs in objns:
+                        value = objns[rhs]
+                    else:
+                        value = eval(rhs,{},objns)
                 else:
-                    ip.showtraceback()
-            finally:
-                button.disabled = False
-            
-        button.on_click(call_run)
-        call_run(button,instruct=False)  # ensure run() is called before button is clicked
+                    target = expr
+                    value = objns[expr]
+                if target in d:
+                    raise KeyError('''Name '{}' has been extracted multiple times.'''.format(target))
+                d[target] = value
+        self.new_ns = d
+        self.old_vars = {}
+        self.new_vars = []
+                                   
 
-        return container
-
-
-def Warn(s):
-    print('***** WARNING:',s,'*****')
+    def __enter__(self):
+        """Add all attributes/values to the set of global variables.
+        Save enough state so that they can be restored when the context
+        manager exits."""
+        gns = get_ipython().user_ns  # get the ns for the user
+        for k,v in self.new_ns.items():
+            if k in gns:
+                self.old_vars[k] = gns[k]
+            else:
+                self.new_vars.append(k)
+            gns[k] = v
+        return self
     
-def _get(dct,keys):
-    """Return the value, in dct, of all comma-sperated expressions
-    in keys.  Each key expression can be:
-       - an identifier, or
-       - and identifier=default_value, or
-       - an expression that is evaluated
-    If there is only one key, return a singleton, else return a list of values.
-    eg:  d = dict(a=10,b=20)
-         _get(d,'a,b=40,c=50,a+b') => [10,20,50,30]
-    """
-    ans = []
-    keys = keys.split(',')
-    for k in keys:
-        default = None
-        if '=' in k:
-            k,default = k.split('=',1)
-        k = k.strip()
-        if k in dct:
-            ans.append(dct[k])
-        elif default is not None:
-            ans.append(eval(default,{},dct))
-        else:
-            ans.append(eval(k,{},dct))
-    if len(keys) == 1:
-        return ans[0]
-    return ans
-
-################################################################
+    def __exit__(self,*l):
+        """When the context exits, restore the global values to what they
+        were before entering."""
+        gns = get_ipython().user_ns  # get the ns for the user
+        for k,v in self.old_vars.items():
+            gns[k] = v               # restore old values
+        for k in self.new_vars:
+            if k in gns:
+                del gns[k]           # or delete them if they were newly created
+        self.old_vars = {}
+        self.new_vars = []
+        return False              # to re-raise exceptions
+    
 ################################################################
 ################ Parts
 ################################################################
@@ -558,40 +353,6 @@ class PartMeta(type):
         newname = cls.__name__ + '_Partial'
         return PartMeta(newname,cls.__bases__,newdct)
 
-    def __enter__(cls):
-        """Add all attributes/values to the set of global variables.
-        Save enough state so that they can be restored when the context
-        manager exits."""
-        if not hasattr(cls,'__saved'):
-            cls.__saved = []
-        dct = cls.__dict__
-        _new = []                # save a list of newly added variables
-        _old = {}                # remember values of those that already exist in ns.
-        ns = get_ipython().user_ns  # get the ns for the user
-        for k,v in dct.items():
-            if k in ns:
-                _old[k] = ns[k]
-            else:
-                _new.append(k)
-            ns[k] = v
-        cls.__saved.append((_new,_old))
-##        print('Push:',dct.keys(),_new,_old)
-        return cls
-    
-    def __exit__(cls,*l):
-        """When the context exits, restore the global values to what they
-        were before entering."""
-        _new,_old = cls.__saved.pop()
-##        print('Pop:',_new,_old)
-        ns = get_ipython().user_ns  # get the ns for the user
-        for k,v in _old.items():
-            ns[k] = v              # restore old values
-        for k in _new:
-            del ns[k]              # or delete them if they were newly created
-        if not cls.__saved:
-            del cls.__saved
-        return False              # to re-raise exceptions
-    
     def ns(cls):
         """Return namespace."""
         ans = {}
