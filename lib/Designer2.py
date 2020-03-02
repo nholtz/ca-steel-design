@@ -269,17 +269,27 @@ class DesignNotes_CM(object):
 
     """DesignNotes Context Manager."""
 
-    def __init__(self, notes, *objattrs, title=None, result=None, record=None, trace=None):
+    def __init__(self, notes, *objattrs, title=None, var=None, other='', trace=None):
         if trace is None:
             trace = notes.trace
         self.notes = notes
+        self.objattrs = objattrs
         self.title = title
-        self.result = result
-        self.record = record
+        if var is None:
+            var = notes.var
+        self.var = var
+        self.other = other
         self.trace = trace
+        self._setup()
+
+    def _setup(self):
+        """Add all attributes/values to the set of global variables.
+        Save enough state so that they can be restored when the context
+        manager exits."""
+        gns = get_ipython().user_ns  # get the ns for the user
         d = {}
         gns = get_ipython().user_ns
-        for obj,names in objattrs:
+        for obj,names in self.objattrs:
             objns = obj.ns()
             for expr in se_split(names):
                 if '=' in expr:
@@ -295,21 +305,27 @@ class DesignNotes_CM(object):
                     raise KeyError('''Name '{}' has been extracted multiple times.'''.format(target))
                 d[target] = value
         self.new_ns = d
+        self.other_vars = [y for y in [x.strip() in other.split(',')] if y] + [self.var]
+        
         self.old_vars = {}
         self.new_vars = []
-                                   
-
-    def __enter__(self):
-        """Add all attributes/values to the set of global variables.
-        Save enough state so that they can be restored when the context
-        manager exits."""
-        gns = get_ipython().user_ns  # get the ns for the user
         for k,v in self.new_ns.items():
             if k in gns:
                 self.old_vars[k] = gns[k]
             else:
                 self.new_vars.append(k)
             gns[k] = v
+        for k in self.other_vars:
+            if k in self.new_ns:
+                raise KeyError('''Name '{}' is defined both as an attribute and an other.'''.format(k))
+            if k in gns:
+                self.old_vars[k] = gns[k]
+                del gns[k]
+            else:
+                self.new_vars.append(k)
+                                   
+
+    def __enter__(self):
         return self
     
     def __exit__(self,*l):
