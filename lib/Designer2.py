@@ -257,13 +257,19 @@ class DesignNotes(object):
                     ##print('Updating')
                     _cell.update(self.fmt_record((_label,_vlist,_vars),governs=True))
 
-    ################################################################ Caution! not yet finished below
+################################################################ Caution! not yet finished below
+    
+## perthaps .setvars() should do most of the work of saving/injecting
+## then return a context manager to restore/log info
+## that way could be used outside of with statement ...
+## setvars captures all required variable values, does not log anything
+## only .__exit__() logs ....
 
 class DesignNotes_CM(object):
 
     """DesignNotes Context Manager."""
 
-    def __init__(self, notes, objattrs, title=None, result=None, record=None, trace=None):
+    def __init__(self, notes, *objattrs, title=None, result=None, record=None, trace=None):
         if trace is None:
             trace = notes.trace
         self.notes = notes
