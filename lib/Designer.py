@@ -47,7 +47,7 @@ def fmt_quantity(v,nsigfigs=4,sep=''):
         v = v + sep + u
     return v
 
-def fmt_dict(d,varlist='',nsigfigs=4):
+def fmt_dict(d,varlist='',nsigfigs=4,sort=True):
     """Format the values in the dictionary, d, as a 
     comma-separated list of name=val pairs.  Format floats
     to 4 sig figs.  If a comma-separated list of names
@@ -60,8 +60,10 @@ def fmt_dict(d,varlist='',nsigfigs=4):
     if varlist:
         for k in re.split(r'\s*,\s*',varlist.strip()):
             ans.append(_fmt_pair(k,d.pop(k)))
-    sorted = lambda l: l
-    for k in sorted(d.keys()):
+    keys = d.keys()
+    if sort:
+        keys = sorted(keys,key=str.lower)
+    for k in keys:
         ans.append(_fmt_pair(k,d[k]))
     return ', '.join(ans)
 
@@ -277,14 +279,16 @@ class DesignNotes_CM(object):
 
     """DesignNotes Context Manager."""
 
-    def __init__(self, notes, *objattrs, label=None, result_var=None, local='', trace=None, record=True):
+    def __init__(self, notes, *objattrs, label=None, result_var=None,
+                 local='', locals='', globals='', trace=None, record=True):
         self.notes = notes
         self.objattrs = objattrs
         self.label = label
         if result_var is None:
             result_var = notes.var
         self.result_var = result_var
-        self.local = local
+        self.local = local + locals   # get rid of local some day, locals is preferred because of globals
+        self.globals = globals
         if trace is None:
             trace = notes.trace
         self.trace = trace
@@ -315,6 +319,7 @@ class DesignNotes_CM(object):
                 d[target] = value
         self.new_values = d
         self.local_vars = [y for y in [x.strip() for x in self.local.split(',')] if y] + [self.result_var]
+        self.global_vars = [y for y in [x.strip() for x in self.globals.split(',')] if y]
         
         self.changed_values = {}
         self.added_vars = []
@@ -350,7 +355,7 @@ class DesignNotes_CM(object):
         for k,v in self.changed_values.items():
             if k in gns:
                 dct[k] = gns[k]
-        for k in self.added_vars:
+        for k in self.added_vars + self.global_vars:
             if k in gns:
                 dct[k] = gns[k]
         self.ending_values = dct
