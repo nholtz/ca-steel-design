@@ -19,6 +19,9 @@ def str_formatter(str,pp,cycle):
 plain = get_ipython().display_formatter.formatters['text/plain']
 plain.for_type(str,str_formatter)
 
+class DesignerError(Exception):
+    pass
+
 class CheckerError(Exception):
     pass
 
@@ -144,11 +147,13 @@ class DesignNotes(object):
 ### See Updating-Cells.ipynb for ideas about how we could add a '<<<--- GOVERNS' tag
 ### When results are finally summarized.  Use display() rather than print and gen a display_id
             
-    def record(self,val,label,_varlist='',**kwargs):
+    def record(self,val,label,_varlist='',values=None,**kwargs):
         """Record a result for an analysis computation."""
         if self.units and hasattr(val,'to'):
             val = val.to(self.units)
         d = {}
+        if values:
+            d.update(values)
         if _varlist:
             locals,globals = get_locals_globals()
             for v in re.split(r'\s*,\s*',_varlist.strip()):
@@ -162,6 +167,9 @@ class DesignNotes(object):
             cell = display(self.fmt_record(rec),display_id=True)
         self._record.append((rec,cell))
         ##return val
+        
+    def setvars(self,*args,**kwargs):
+        return DesignNotes_CM(self,*args,**kwargs)
 
     def fmt_check(self,chk,width=None):
         """Format a check record for display."""
@@ -269,17 +277,18 @@ class DesignNotes_CM(object):
 
     """DesignNotes Context Manager."""
 
-    def __init__(self, notes, *objattrs, title=None, var=None, other='', trace=None):
-        if trace is None:
-            trace = notes.trace
+    def __init__(self, notes, *objattrs, label=None, result_var=None, local='', trace=None, record=True):
         self.notes = notes
         self.objattrs = objattrs
-        self.title = title
-        if var is None:
-            var = notes.var
-        self.var = var
-        self.other = other
+        self.label = label
+        if result_var is None:
+            result_var = notes.var
+        self.result_var = result_var
+        self.local = local
+        if trace is None:
+            trace = notes.trace
         self.trace = trace
+        self.record = record
         self._setup()
 
     def _setup(self):
@@ -297,49 +306,75 @@ class DesignNotes_CM(object):
                     if rhs in objns:
                         value = objns[rhs]
                     else:
-                        value = eval(rhs,{},objns)
+                        value = eval(rhs,gns,objns)
                 else:
                     target = expr
                     value = objns[expr]
                 if target in d:
-                    raise KeyError('''Name '{}' has been extracted multiple times.'''.format(target))
+                    raise DesignerError('''Name '{}' has been used more than once.'''.format(target))
                 d[target] = value
-        self.new_ns = d
-        self.other_vars = [y for y in [x.strip() in other.split(',')] if y] + [self.var]
+        self.new_values = d
+        self.local_vars = [y for y in [x.strip() for x in self.local.split(',')] if y] + [self.result_var]
         
-        self.old_vars = {}
-        self.new_vars = []
-        for k,v in self.new_ns.items():
+        self.changed_values = {}
+        self.added_vars = []
+        
+    def __enter__(self):
+        gns = get_ipython().user_ns
+        for k,v in self.new_values.items():
             if k in gns:
-                self.old_vars[k] = gns[k]
+                self.changed_values[k] = gns[k]
             else:
-                self.new_vars.append(k)
+                self.added_vars.append(k)
             gns[k] = v
-        for k in self.other_vars:
-            if k in self.new_ns:
-                raise KeyError('''Name '{}' is defined both as an attribute and an other.'''.format(k))
+            
+        for k in self.local_vars:
+            if k in self.changed_values or k in self.added_vars:
+                raise DesignerError('''Name '{}' has been used more than once.'''.format(k))
             if k in gns:
-                self.old_vars[k] = gns[k]
+                self.changed_values[k] = gns[k]
                 del gns[k]
             else:
-                self.new_vars.append(k)
-                                   
-
-    def __enter__(self):
+                self.added_vars.append(k)
         return self
     
-    def __exit__(self,*l):
+    enter = __enter__
+    
+    def __exit__(self,exc_type,exc_value,exc_tb):
         """When the context exits, restore the global values to what they
         were before entering."""
         gns = get_ipython().user_ns  # get the ns for the user
-        for k,v in self.old_vars.items():
+        
+        # capture current values of all local variables
+        dct = {}
+        for k,v in self.changed_values.items():
+            if k in gns:
+                dct[k] = gns[k]
+        for k in self.added_vars:
+            if k in gns:
+                dct[k] = gns[k]
+        self.ending_values = dct
+        
+        # record the result produced
+        if self.record and self.label and exc_type is None:
+            rkey = self.result_var
+            if rkey in gns:
+                rval = gns[rkey]
+            else:
+                raise DesignerError('''Result variable '{}' is not defined.'''.format(rkey))
+            self.notes.record(rval,self.label,values=self.ending_values)
+        
+        # now change the user ns back to what it was before __enter__
+        for k,v in self.changed_values.items():
             gns[k] = v               # restore old values
-        for k in self.new_vars:
+        for k in self.added_vars:
             if k in gns:
                 del gns[k]           # or delete them if they were newly created
-        self.old_vars = {}
-        self.new_vars = []
+        self.changed_values = {}
+        self.added_vars = []
         return False              # to re-raise exceptions
+    
+    exit = __exit__
     
 ################################################################
 ################ Parts
