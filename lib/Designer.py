@@ -68,6 +68,27 @@ def fmt_dict(d,varlist='',nsigfigs=4,sort=True):
     return ', '.join(ans)
 
 
+def fmt_dict2(d,varlist='',nsigfigs=4,sort=True):
+    """Format the values in the dictionary, d, as a 
+    set of lines of name=val pairs.  Format floats
+    to 4 sig figs.  If a comma-separated list of names
+    is given in varlist, do those first in order.  Then
+    format whatever is left, in whatever order they come."""
+    d = d.copy()
+    def _fmt_pair(k,v):
+        return '{0} = {1}'.format(k,fmt_quantity(v,nsigfigs=nsigfigs))
+    ans = []
+    if varlist:
+        for k in re.split(r'\s*,\s*',varlist.strip()):
+            ans.append(_fmt_pair(k,d.pop(k)))
+    keys = d.keys()
+    if sort:
+        keys = sorted(keys,key=str.lower)
+    for k in keys:
+        ans.append("    "+_fmt_pair(k,d[k])+"\n")
+    return ''.join(ans)
+
+
 def _get(dct,keys):
     """Return the value, in dct, of all comma-sperated expressions
     in keys.  Each key expression can be:
@@ -182,7 +203,7 @@ class DesignNotes(object):
             return "    {0:<{1}}  OK \n      ({2})".format(label+'?',width,fmt_dict(_vars,_varlist))
         return "    {0:<{1}}  NG! *****\n      ({2})".format(label+'?',width,fmt_dict(_vars,_varlist))
     
-    def fmt_record(self,rec,width=None,var=None,governs=False,nsigfigs=4,showvars=True):
+    def fmt_recordxxx(self,rec,width=None,var=None,governs=False,nsigfigs=4,showvars=True):
         """Format a computation record for display."""
         label,_varlist,_vars = rec
         _vars = _vars.copy()
@@ -199,6 +220,27 @@ class DesignNotes(object):
                 ans += '    <<<--- GOVERNS'
         if _vars and showvars:
             ans += '\n       ('+fmt_dict(_vars)+')'
+        return ans
+
+    def fmt_record(self,rec,width=None,var=None,governs=False,nsigfigs=4,showvars=True):
+        """Format a computation record for display."""
+        label,_varlist,_vars = rec
+        _vars = _vars.copy()
+        if width is None:
+            width = len(label)
+        if var is None:
+            var = self.var
+        ans = ""
+        if _vars and showvars:
+            ans += fmt_dict2(_vars)
+            ans += "\n"
+        ans += "    {label:<{width}} ".format(label=label+':',width=width)
+        if var:
+            val = _vars.pop(var)
+            ##print(val, type(val))
+            ans += '{0} = {1}'.format(var,fmt_quantity(val,nsigfigs=nsigfigs,sep=' '))
+            if governs:
+                ans += '    <<<--- GOVERNS'
         return ans
 
     def show(self,*vlists):
