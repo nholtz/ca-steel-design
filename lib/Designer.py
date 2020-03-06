@@ -317,6 +317,7 @@ class DesignNotes(object):
 ## setvars captures all required variable values, does not log anything
 ## only .__exit__() logs ....
 
+
 class DesignNotes_CM(object):
 
     """DesignNotes Context Manager."""
@@ -344,7 +345,15 @@ class DesignNotes_CM(object):
         gns = get_ipython().user_ns  # get the ns for the user
         d = {}
         gns = get_ipython().user_ns
-        for obj,names in self.objattrs:
+        for ob in self.objattrs:
+            if ispartial(ob):
+                for target,value in ob.ns().items():
+                    if target in d:
+                        raise DesignerError('''Name '{}' has been used more than once.'''.format(target))
+                    d[target] = value
+                continue
+            else:
+                obj,names = ob
             objns = obj.ns()
             for expr in se_split(names):
                 if '=' in expr:
@@ -454,8 +463,14 @@ class PartMeta(type):
                 else:
                     newdct[k] = dct[k]
         newdct['__doc__'] = dct.get('__doc__')
+        newdct['__partof__'] = cls
         newname = cls.__name__ + '_Partial'
-        return PartMeta(newname,cls.__bases__,newdct)
+        return type(newname,(Part,),newdct)
+
+    def ispartial(cls):
+        if '__partof__' not in cls.__dict__:
+            return False
+        return True
 
     def ns(cls):
         """Return namespace."""
@@ -489,8 +504,7 @@ class PartMeta(type):
         return ans[0] if len(ans) == 1 else ans
                 
 
-class Part(metaclass=PartMeta):
-    
+class Part(metaclass=PartMeta):   
     pass
      
 def makePart(cls):
@@ -501,6 +515,11 @@ def makePart(cls):
     bases = cls.__bases__
     newdct = {k:v for k,v in dct.items() if not k.startswith('__')}
     return PartMeta(cls.__name__,bases,newdct)
+
+def ispartial(cls):
+    if callable(getattr(cls,'ispartial',None)):
+        return cls.ispartial()
+    return False
 
 ################################################################
 # instantiate the section tables
