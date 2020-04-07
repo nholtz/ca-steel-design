@@ -8,7 +8,6 @@ import math
 import datetime
 #from warnings import filterwarnings
 #filterwarnings('ignore', module='IPython.html.widgets')
-import ipywidgets as widgets
 from IPython.display import display, clear_output
 from IPython import get_ipython
 from utils import SVG, show, sfrounds, sfround, get_locals_globals, isfloat, Recorder, figure, se_split
