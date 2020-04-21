@@ -47,6 +47,37 @@ class Properties(object):
     def __setitem__(self,key,value):
         setattr(self,key,value)
 
+    def call( self, fnc, **kwargs ):
+        """Call the function, fnc, and return its result.  Supply its arguments
+        from attribute values of the same name, or from its default values.
+        Override values by kwargs."""
+        kwargs = kwargs.copy()
+        args = {}
+        fnc_params = inspect.signature(fnc)
+        for name,param in fnc_params.parameters.items():
+            if param.kind == inspect.Parameter.VAR_KEYWORD:
+                args.update(kwargs)
+                kwargs = {}
+                break
+            if param.kind == inspect.Parameter.VAR_POSITIONAL:
+                raise TypeError("in function {}: VAR_POSITIONAL parameter '{}' not supported.".format(fnc.__name__,name))
+            if param.kind == inspect.Parameter.POSITIONAL_ONLY:
+                raise TypeError("in function {}: POSITIONAL_ONLY parameter '{}' not supported.".format(fnc.__name__,name))
+            if hasattr(self,name):
+                args[name] = getattr(self,name)
+            if param.default != param.empty:
+                args[name] = param.default
+            if name in kwargs:
+                args[name] = kwargs[name]
+                del kwargs[name]
+                continue
+            if name not in args:
+                raise TypeError("in function {}: No value found for argument '{}'".format(fnc.__name__,name))
+        if kwargs:
+            raise TypeError("in function {}: Extra keyword arguments: {}".format(fnc.__name__,', '.join(kwargs.keys())))
+        return fnc(**args)
+
+
 class SST(object):
 
     def __init__(self):
@@ -151,6 +182,9 @@ class SST(object):
         if len(sections) == 0:
             raise KeyError('No section with designation: ' + dsg)
         raise KeyError('More than one section with designation: ' + dsg)
+
+    def get(self,dsg,shp=None):
+        return self.section(dsg,shp=shp)
 
     def setprops(self,dsg,properties,shp=None):
         """Find the properties for the single shape whose designation is
