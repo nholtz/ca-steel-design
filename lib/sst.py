@@ -105,6 +105,47 @@ class SST(object):
             ans.extend([x for x,d,c in shps if d == shp])
         return list(set(ans))   # uniquify them
 
+    def getshps(self,*slist):
+        """Return a list of all shp codes that correspond to the given designation prefixes.
+        Each argumment can be a single prefix, such as 'W', or a tuple containing the prefix
+        as the first item, followed by a list of text strings all of which must be in the
+        longer description of the shape type.  For example
+
+           .getshps('W','WWF', 'S', ('HS','Square','G40.20'),('HS','rect'),('2L','equal'))
+
+        returns
+
+            [1, 5, 2, 15, 16, 13]
+        """
+
+        # get the list of all prefixes, shp codes and descriptions (in lower case)
+        allshps = [(pfx,shp,desc.lower()) for shp,pfx,desc in self.shps()]
+        shps = []   # the answer to be returned.
+        for arg in slist:
+            # get the desired prefix, pfx, and the list of substring arguments (in lower case)
+            if type(arg) in [type(()),type([])] and len(arg) >= 1:
+                pfx = arg[0]
+                args = arg[1:]
+            else:
+                pfx = arg
+                args = []
+            args = [x.lower() for x in args]
+
+            # search the list of all shape types ...
+            prevl = len(shps)
+            for p,shp,desc in allshps:
+                if p != pfx:        # for a prefix that matches
+                    continue
+                for a in args:      # and also all substrings must be in the description of that shape type
+                    if a not in desc:
+                        shp = None
+                        break
+                if shp is not None:
+                    shps.append(shp)
+            if prevl == len(shps):
+                raise ValueError("No shape code found for prefix '{}' with text: {}".format(pfx,', '.join(args)))
+        return shps
+
     def section_table(self,shp):
         """Return the section table for shapes of type shp.  shp may
         be a number or a designation prefix.  If its a prefix, and more than
