@@ -439,40 +439,9 @@ class PartMeta(type):
     
     def __call__(cls,*args,**kwargs):
         raise TypeError("It is not possible to create an instance of this class: "+repr(cls))
-    
-    def __getitem__(cls,keys):
-        if not type(keys) == type(()):
-            keys = (keys,)
-        ##print(cls,keys)
-        newdct = {}
-        cls_ns = None
-        dct = cls.ns()
-        for names in keys:
-            for k in names.split(','):
-                k = k.strip()
-                if not k:
-                    continue
-                if '=' in k:
-                    k,e = k.split('=',1)
-                    k = k.strip()
-                    if cls_ns is None:
-                        cls_ns = (globals(),cls.ns())
-                    v = eval(e,*cls_ns)
-                    newdct[k] = v
-                else:
-                    newdct[k] = dct[k]
-        newdct['__doc__'] = dct.get('__doc__')
-        newdct['__partof__'] = cls
-        newname = cls.__name__ + '_Partial'
-        return type(newname,(Part,),newdct)
-
-    def ispartial(cls):
-        if '__partof__' not in cls.__dict__:
-            return False
-        return True
-
-    def ns(cls):
-        """Return namespace."""
+        
+    def __ns__(cls):
+        """Return the namespace."""
         ans = {}
         for c in cls.__mro__:
             if c in (Part,object):
@@ -487,33 +456,73 @@ class PartMeta(type):
         """Show variables in same form as show() function. If keys is None,
         show all with _doc first.  keys can be like in show - ie, expressions,
         scales, label=expr, etc.."""
-        v = cls.ns()
+        v = cls.__ns__()
         if keys is None:
-            pairs = sorted([(k.lower(),k) for k in v.keys()])
-            keys = ','.join([o for k,o in pairs])
+            keys = ','.join(sorted(v.keys(),key=lambda s: s.lower()))
         show(keys,data=v)
-
-    def get(cls,keys):
-        v = (globals(),cls.ns())
+        
+    def values(cls,keys):
+        keys = [x.strip() for x in keys.split(',') if x]
+        ans = tuple([cls.__dict__[k] for k in keys])
+        if not ans:
+            raise ValueError('No keys found')
+        return ans if len(ans) > 1 else ans[0]
+    
+    def items(cls,keys):
+        keys = [k for k in se_split(keys) if k]
+        dct = cls.__ns__()
         ans = []
-        for k in keys.split(','):
-            k = k.strip()
-            if k:
-                ans.append(eval(k,*v))
-        return ans[0] if len(ans) == 1 else ans
-                
-
-class Part(metaclass=PartMeta):   
+        for k in keys:
+            if '=' in k:
+                k,e = [x.strip() for x in k.split('=',1)]
+                v = eval(e,dct)
+            else:
+                v = dct[k]
+            ans.append((k,v))
+        return ans
+        
+        
+class Part(metaclass=PartMeta):
+    
     pass
-     
+
+def extract(s,*objs,**kwds):
+    if not objs:
+        raise ValueError('No part objects given.')
+    dct = {}
+    for o in objs:
+        for k,v in o.__dict__.items():
+            if not k.startswith('__'):
+                if k not in dct:
+                    dct[k] = v
+    dct.update(kwds)
+    newdct = {}
+    for k in se_split(s):
+        if not k:
+            continue
+        if '=' in k:
+            k,e = [x.strip() for x in k.split('=',1)]
+            v = eval(e,dct)
+            newdct[k] = v
+        else:
+            newdct[k] = dct[k]
+    newdct['__doc__'] = objs[0].__dict__.get('__doc__')
+    newname = objs[0].__name__ + '_Extract'
+    return PartMeta(newname,(Part.__bases__),newdct)
+
+
 def makePart(cls):
     """Returns an object of type Part from the class definition and class attributes
     of 'cls'.  Intended to be used as a decorator so we can use class definitions
     to build parts (syntactic sugar)."""
     dct = cls.__dict__
     bases = cls.__bases__
+    bad = [k for k in dct if k.startswith('__') and k not in ['__module__','__dict__','__weakref__','__doc__']]
+    if bad:
+        raise TypeError('Invalid key names: {}'.format(', '.join(bad)))
     newdct = {k:v for k,v in dct.items() if not k.startswith('__')}
     return PartMeta(cls.__name__,bases,newdct)
+
 
 def ispartial(cls):
     if callable(getattr(cls,'ispartial',None)):
