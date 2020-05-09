@@ -229,7 +229,8 @@ def show(*vlists,**kw):
     object=None gives an object whose vars() are added as
         local variables;
     data={} gives a dictionary whose values are added as
-        local variables."""
+        local variables.
+    minwidth=n minimum width of variable name (lhs)."""
 
     _locals,_globals = get_locals_globals()
     
@@ -242,6 +243,7 @@ def show(*vlists,**kw):
     if dct:
         _locals = _locals.copy()
         _locals.update(dct)
+    minwidth = kw.pop('minwidth',0)
     if kw:
         raise ValueError('Invalid keyword arguments: '+' '.join(kw.keys()))
 
@@ -273,7 +275,7 @@ def show(*vlists,**kw):
                 key = expr = v
             names.append((key,expr,scale,_locals))
     widths = [len(v) for v,e,s,l in names]
-    width = max(widths) if len(widths) > 0 else 0
+    width = max(minwidth,max(widths) if len(widths) > 0 else 0)
     lines = []
     for v,e,s,l in names:
         units = ''
