@@ -87,34 +87,6 @@ def fmt_dict2(d,varlist='',nsigfigs=4,sort=True):
         ans.append("    "+_fmt_pair(k,d[k])+"\n")
     return ''.join(ans)
 
-
-def _getxxx(dct,keys):
-    """Return the value, in dct, of all comma-sperated expressions
-    in keys.  Each key expression can be:
-       - an identifier, or
-       - and identifier=default_value, or
-       - an expression that is evaluated
-    If there is only one key, return a singleton, else return a list of values.
-    eg:  d = dict(a=10,b=20)
-         _get(d,'a,b=40,c=50,a+b') => [10,20,50,30]
-    """
-    ans = []
-    keys = keys.split(',')
-    for k in keys:
-        default = None
-        if '=' in k:
-            k,default = k.split('=',1)
-        k = k.strip()
-        if k in dct:
-            ans.append(dct[k])
-        elif default is not None:
-            ans.append(eval(default,{},dct))
-        else:
-            ans.append(eval(k,{},dct))
-    if len(keys) == 1:
-        return ans[0]
-    return ans
-
 def items(names,*objs,**kwds):
     """Return the value of all comma-seperated expressions
     in names.  Each name expression can be:
@@ -167,6 +139,8 @@ def items(names,*objs,**kwds):
         d[target] = value
 
     return list(d.items())
+
+gvars = items
 
 def values(names,*objs,**kwds):
     return [v for k,v in items(names,*objs,**kwds)]
@@ -370,121 +344,6 @@ class DesignNotes(object):
 ## that way could be used outside of with statement ...
 ## setvars captures all required variable values, does not log anything
 ## only .__exit__() logs ....
-
-
-class DesignNotes_CMxxx(object):
-
-    """DesignNotes Context Manager."""
-
-    def __init__(self, notes, *objattrs, label=None, result_var=None,
-                 local='', locals='', globals='', trace=None, record=True):
-        self.notes = notes
-        self.objattrs = objattrs
-        self.label = label
-        if result_var is None:
-            result_var = notes.var
-        self.result_var = result_var
-        self.local = local + locals   # get rid of local some day, locals is preferred because of globals
-        self.globals = globals
-        if trace is None:
-            trace = notes.trace
-        self.trace = trace
-        self.record = record
-        self._setup()
-
-    def _setup(self):
-        """Add all attributes/values to the set of global variables.
-        Save enough state so that they can be restored when the context
-        manager exits."""
-        gns = get_ipython().user_ns  # get the ns for the user
-        d = {}
-        gns = get_ipython().user_ns
-        for ob in self.objattrs:
-            if ispartial(ob):
-                for target,value in ob.ns().items():
-                    if target in d:
-                        raise DesignerError('''Name '{}' has been used more than once.'''.format(target))
-                    d[target] = value
-                continue
-            else:
-                obj,names = ob
-            objns = obj.ns()
-            for expr in se_split(names):
-                if '=' in expr:
-                    target,rhs = [x.strip() for x in expr.split('=',1)]
-                    if rhs in objns:
-                        value = objns[rhs]
-                    else:
-                        value = eval(rhs,gns,objns)
-                else:
-                    target = expr
-                    value = objns[expr]
-                if target in d:
-                    raise DesignerError('''Name '{}' has been used more than once.'''.format(target))
-                d[target] = value
-        self.new_values = d
-        self.local_vars = [y for y in [x.strip() for x in self.local.split(',')] if y] + [self.result_var]
-        self.global_vars = [y for y in [x.strip() for x in self.globals.split(',')] if y]
-        
-        self.changed_values = {}
-        self.added_vars = []
-        
-    def __enter__(self):
-        gns = get_ipython().user_ns
-        for k,v in self.new_values.items():
-            if k in gns:
-                self.changed_values[k] = gns[k]
-            else:
-                self.added_vars.append(k)
-            gns[k] = v
-            
-        for k in self.local_vars:
-            if k in self.changed_values or k in self.added_vars:
-                raise DesignerError('''Name '{}' has been used more than once.'''.format(k))
-            if k in gns:
-                self.changed_values[k] = gns[k]
-                del gns[k]
-            else:
-                self.added_vars.append(k)
-        return self
-    
-    enter = __enter__
-    
-    def __exit__(self,exc_type,exc_value,exc_tb):
-        """When the context exits, restore the global values to what they
-        were before entering."""
-        gns = get_ipython().user_ns  # get the ns for the user
-        
-        # capture current values of all local variables
-        dct = {}
-        for k,v in self.changed_values.items():
-            if k in gns:
-                dct[k] = gns[k]
-        for k in self.added_vars + self.global_vars:
-            if k in gns:
-                dct[k] = gns[k]
-        self.ending_values = dct
-        
-        # record the result produced
-        if self.record and self.label and exc_type is None:
-            rkey = self.result_var
-            if rkey in gns:
-                rval = gns[rkey]
-            else:
-                raise DesignerError('''Result variable '{}' is not defined.'''.format(rkey))
-            self.notes.record(rval,self.label,values=self.ending_values)
-        
-        # now change the user ns back to what it was before __enter__
-        for k,v in self.changed_values.items():
-            gns[k] = v               # restore old values
-        for k in self.added_vars:
-            if k in gns:
-                del gns[k]           # or delete them if they were newly created
-        self.changed_values = {}
-        self.added_vars = []
-        return False              # to re-raise exceptions
-    
-    exit = __exit__
     
 class CM1(object):
     
@@ -587,31 +446,6 @@ class PartMeta(type):
 class Part(metaclass=PartMeta):
     
     pass
-
-def extract(s,*objs,**kwds):
-    if not objs:
-        raise ValueError('No part objects given.')
-    dct = {}
-    for o in objs:
-        for k,v in o.__dict__.items():
-            if not k.startswith('__'):
-                if k not in dct:
-                    dct[k] = v
-    dct.update(kwds)
-    newdct = {}
-    for k in se_split(s):
-        if not k:
-            continue
-        if '=' in k:
-            k,e = [x.strip() for x in k.split('=',1)]
-            v = eval(e,dct)
-            newdct[k] = v
-        else:
-            newdct[k] = dct[k]
-    newdct['__doc__'] = objs[0].__dict__.get('__doc__')
-    newname = objs[0].__name__ + '_Extract'
-    return PartMeta(newname,(Part.__bases__),newdct)
-
 
 def makePart(cls):
     """Returns an object of type Part from the class definition and class attributes
