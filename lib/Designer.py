@@ -115,6 +115,46 @@ def _get(dct,keys):
         return ans[0]
     return ans
 
+def items(names,*objs,**kwds):
+    ns = {}
+    for o in reversed(objs):
+        if isinstance(o,type):
+            ns.update(o.__ns__())
+            continue
+        if type(o) in (list,tuple):
+            if len(o) > 0:
+                if type(o[0]) is tuple and len(o[0]) == 2:
+                    ns.update(dict(o))
+                else:
+                    raise ValueError('Invalid object: {}'.format(o))
+            continue
+        for k,v in vars(o).items():
+            if not k.startswith('__'):
+                ns[k] = v
+    ns.update(kwds)
+    
+    d = {}
+    for expr in se_split(names):
+        if '=' in expr:
+            target,rhs = [x.strip() for x in expr.split('=',1)]
+            if rhs in ns:
+                value = ns[rhs]
+            else:
+                if ns:
+                    value = eval(rhs,ns)
+                else:
+                    raise ValueError("Illegal name: {}={}".format(target,rhs))
+        else:
+            target = expr
+            value = ns[expr] if ns else None
+        if target in d:
+            raise DesignerError('''Name '{}' has been used more than once.'''.format(target))
+        d[target] = value
+
+    return list(d.items())
+
+def values(names,*objs,**kwds):
+    return [v for k,v in items(names,*objs,**kwds)]
 
 ################################################################
 #### DesignNotes
@@ -308,6 +348,25 @@ class DesignNotes(object):
                     ##print('Updating')
                     _cell.update(self.fmt_record((_label,_vlist,_vars),governs=True))
 
+    def makeVARS(self,show=None):
+        if show is None:
+            show = self.show
+        def _makeVARS(varslist,*objlist,**kwds):
+            nonlocal show
+            nonlocal self
+            return CM1(notes=self,itemlist=items(varslist,*objlist,**kwds),show=show)
+        return _makeVARS
+            
+    def makeREC(self,show=None):
+        if show is None:
+            show = self.show
+        def _makeREC(var,label,**kwds):
+            nonlocal show
+            nonlocal self
+            return CM1(notes=self,itemlist=[(var,None)],show=show,label=label,record=True)
+        return _makeREC
+
+        
 ################################################################ Caution! not yet finished below
     
 ## perthaps .setvars() should do most of the work of saving/injecting
@@ -431,6 +490,47 @@ class DesignNotes_CM(object):
     
     exit = __exit__
     
+class CM1(object):
+    
+    def __init__(self,notes,itemlist,show=False,label='',record=False):
+        self.notes = notes
+        self.itemlist = itemlist
+        self.show = show
+        self.label = label
+        self.record = record
+        self.changed_vars = {}
+        self.added_vars = []
+        self.gns = get_ipython().user_ns
+    
+    def __enter__(self):
+        for k,v in self.itemlist:
+            if k in self.gns:
+                self.changed_vars[k] = self.gns[k]
+            else:
+                self.added_vars.append(k)
+            self.gns[k] = v
+        
+    def __exit__(self,*args):
+        if self.record:
+            var = self.itemlist[0][0]
+            val = self.gns[var]
+            if self.notes.units:
+                val = val.to(self.notes.units)
+            self.notes.record(val,self.label)                
+        elif self.show:
+            values = {}
+            for k,v in self.itemlist:
+                values[k] = self.gns[k]
+            if values:
+                show(','.join([k for k,v in values.items()]),data=values,minwidth=5)
+        for k in self.added_vars:
+            if k in self.gns:
+                del self.gns[k]
+        self.added_vars = []
+        for k,v in self.changed_vars.items():
+            self.gns[k] = v
+        self.changed_vars = {}
+        
 ################################################################
 ################ Parts
 ################################################################
