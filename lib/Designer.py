@@ -88,7 +88,7 @@ def fmt_dict2(d,varlist='',nsigfigs=4,sort=True):
     return ''.join(ans)
 
 
-def _get(dct,keys):
+def _getxxx(dct,keys):
     """Return the value, in dct, of all comma-sperated expressions
     in keys.  Each key expression can be:
        - an identifier, or
@@ -116,10 +116,23 @@ def _get(dct,keys):
     return ans
 
 def items(names,*objs,**kwds):
+    """Return the value of all comma-seperated expressions
+    in names.  Each name expression can be:
+       - an identifier, or
+       - an identifier=expr, where gthe expr will be evaluated in the sgive namespace
+    objs is a list of objects specifying names and values for the namespace
+    kwds is a set of default values
+    Return a list of name,value pairs  
+        d = dict(a=10,b=20)
+        items('a,b=40,c',d,c=50) => [(a,10),(b,40),(c,50)]
+    """
     ns = {}
     for o in reversed(objs):
         if isinstance(o,type):
             ns.update(o.__ns__())
+            continue
+        if isinstance(o,dict):
+            ns.update(dict)
             continue
         if type(o) in (list,tuple):
             if len(o) > 0:
@@ -131,7 +144,9 @@ def items(names,*objs,**kwds):
         for k,v in vars(o).items():
             if not k.startswith('__'):
                 ns[k] = v
-    ns.update(kwds)
+    for k,v in kwds.items():
+        if k not in ns:
+            ns[k] = v
     
     d = {}
     for expr in se_split(names):
@@ -226,7 +241,7 @@ class DesignNotes(object):
         rec = (label,_varlist,d)
         cell = None
         if self.trace:
-            cell = display(self.fmt_record(rec),display_id=True)
+            cell = display(self.fmt_record(rec,showvars=False),display_id=True)
         self._record.append((rec,cell))
         ##return val
         
@@ -242,25 +257,6 @@ class DesignNotes(object):
             return "    {0:<{1}}  OK \n      ({2})".format(label+'?',width,fmt_dict(_vars,_varlist))
         return "    {0:<{1}}  NG! *****\n      ({2})".format(label+'?',width,fmt_dict(_vars,_varlist))
     
-    def fmt_recordxxx(self,rec,width=None,var=None,governs=False,nsigfigs=4,showvars=True):
-        """Format a computation record for display."""
-        label,_varlist,_vars = rec
-        _vars = _vars.copy()
-        if width is None:
-            width = len(label)
-        if var is None:
-            var = self.var
-        ans = "    {label:<{width}} ".format(label=label+':',width=width)
-        if var:
-            val = _vars.pop(var)
-            ##print(val, type(val))
-            ans += '{0} = {1}'.format(var,fmt_quantity(val,nsigfigs=nsigfigs,sep=' '))
-            if governs:
-                ans += '    <<<--- GOVERNS'
-        if _vars and showvars:
-            ans += '\n       ('+fmt_dict(_vars)+')'
-        return ans
-
     def fmt_record(self,rec,width=None,var=None,governs=False,nsigfigs=4,showvars=True):
         """Format a computation record for display."""
         label,_varlist,_vars = rec
@@ -272,7 +268,7 @@ class DesignNotes(object):
         ans = ""
         if _vars and showvars:
             ans += fmt_dict2(_vars)
-            ans += "\n"
+        ans += "\n"
         ans += "    {label:<{width}} ".format(label=label+':',width=width)
         if var:
             val = _vars.pop(var)
@@ -376,7 +372,7 @@ class DesignNotes(object):
 ## only .__exit__() logs ....
 
 
-class DesignNotes_CM(object):
+class DesignNotes_CMxxx(object):
 
     """DesignNotes Context Manager."""
 
@@ -492,6 +488,9 @@ class DesignNotes_CM(object):
     
 class CM1(object):
     
+    """Context Manager 1: Injects variables into Global Name Space on enter,
+    retorses them on exit."""
+    
     def __init__(self,notes,itemlist,show=False,label='',record=False):
         self.notes = notes
         self.itemlist = itemlist
@@ -511,23 +510,26 @@ class CM1(object):
             self.gns[k] = v
         
     def __exit__(self,*args):
-        if self.record:
-            var = self.itemlist[0][0]
-            val = self.gns[var]
-            if self.notes.units:
-                val = val.to(self.notes.units)
-            self.notes.record(val,self.label)                
-        elif self.show:
+        
+        if self.show:
             values = {}
             for k,v in self.itemlist:
                 values[k] = self.gns[k]
             if values:
                 show(','.join([k for k,v in values.items()]),data=values,minwidth=5)
-        for k in self.added_vars:
+                
+        if self.record:
+            var = self.itemlist[0][0]
+            val = self.gns[var]
+            if self.notes.units:
+                val = val.to(self.notes.units)
+            self.notes.record(val,self.label)
+            
+        for k in self.added_vars:     # delete all added variables from GNS
             if k in self.gns:
                 del self.gns[k]
         self.added_vars = []
-        for k,v in self.changed_vars.items():
+        for k,v in self.changed_vars.items():   # restore values of other variables in GNS
             self.gns[k] = v
         self.changed_vars = {}
         
@@ -568,7 +570,7 @@ class PartMeta(type):
             raise ValueError('No keys found')
         return ans if len(ans) > 1 else ans[0]
     
-    def items(cls,keys):
+    def itemsxxx(cls,keys):
         keys = [k for k in se_split(keys) if k]
         dct = cls.__ns__()
         ans = []
