@@ -10,7 +10,7 @@ import datetime
 #filterwarnings('ignore', module='IPython.html.widgets')
 from IPython.display import display, clear_output
 from IPython import get_ipython
-from utils import SVG, show, sfrounds, sfround, get_locals_globals, isfloat, Recorder, figure, se_split
+from utils import SVG, show, sfrounds, sfround, isfloat, Recorder, figure, se_split
 
 # fixup display() of strings; see display() help
 def str_formatter(str,pp,cycle):
@@ -352,53 +352,6 @@ class DesignNotes(object):
 ## setvars captures all required variable values, does not log anything
 ## only .__exit__() logs ....
     
-class CM1(object):
-    
-    """Context Manager 1: Injects variables into Global Name Space on enter,
-    retorses them on exit."""
-    
-    def __init__(self,notes,itemlist,show=False,label='',record=False):
-        self.notes = notes
-        self.itemlist = itemlist
-        self.show = show
-        self.label = label
-        self.record = record
-        self.changed_vars = {}
-        self.added_vars = []
-        self.gns = get_ipython().user_ns
-    
-    def __enter__(self):
-        for k,v in self.itemlist:
-            if k in self.gns:
-                self.changed_vars[k] = self.gns[k]
-            else:
-                self.added_vars.append(k)
-            self.gns[k] = v
-        
-    def __exit__(self,*args):
-        
-        if self.show:
-            values = {}
-            for k,v in self.itemlist:
-                values[k] = self.gns[k]
-            if values:
-                show(','.join([k for k,v in values.items()]),data=values,minwidth=5)
-                
-        if self.record:
-            var = self.itemlist[0][0]
-            val = self.gns[var]
-            if self.notes.units:
-                val = val.to(self.notes.units)
-            self.notes.record(val,self.label)
-            
-        for k in self.added_vars:     # delete all added variables from GNS
-            if k in self.gns:
-                del self.gns[k]
-        self.added_vars = []
-        for k,v in self.changed_vars.items():   # restore values of other variables in GNS
-            self.gns[k] = v
-        self.changed_vars = {}
-        
 class CM2(object):
     
     """Context Manager 2: Injects variables into Global Name Space on enter,
