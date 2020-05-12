@@ -10,7 +10,7 @@ import datetime
 #filterwarnings('ignore', module='IPython.html.widgets')
 from IPython.display import display, clear_output
 from IPython import get_ipython
-from utils import SVG, show, sfrounds, sfround, isfloat, Recorder, figure, se_split
+from utils import SVG, show, sfrounds, sfround, isfloat, get_locals_globals, Recorder, figure, se_split
 
 # fixup display() of strings; see display() help
 def str_formatter(str,pp,cycle):
@@ -153,14 +153,14 @@ def values(names,*objs,**kwds):
             
 class DesignNotes(object):
     
-    def __init__(self,var,trace=False,units=None,selector=min,title='',nsigfigs=3,show_params=False):
-        self.trace = trace
+    def __init__(self,var,showrecord=True,showdata=True,units=None,selector=min,title='',nsigfigs=3):
+        self.showrecord = showrecord
+        self.showdata = showdata
         self.var = var
         self.units = units
         self.selector = selector
         self.title = title
         self.nsigfigs = nsigfigs
-        self.show_params = show_params
         self._notes = []
         self._checks = []
         self._record = []
@@ -179,7 +179,7 @@ class DesignNotes(object):
     def note(self,msg):
         """Record an arbitrary note."""
         self._notes.append(msg)
-        if self.trace:
+        if self.record:
             print('Note:',msg)
             
     def check(self,val,msg='',_varlist='',**kwargs):
@@ -191,14 +191,14 @@ class DesignNotes(object):
                 d[v] = locals[v] if v in locals else globals[v]
         d.update(kwargs)
         self._checks.append((val,msg,_varlist,d))
-        if self.trace:
+        if self.record:
             print(self.fmt_check(self._checks[-1]))
         ##return val
 
 ### See Updating-Cells.ipynb for ideas about how we could add a '<<<--- GOVERNS' tag
 ### When results are finally summarized.  Use display() rather than print and gen a display_id
             
-    def record(self,val,label,_varlist='',values=None,**kwargs):
+    def record(self,val,label,_varlist='',values=None,showdata=True,**kwargs):
         """Record a result for an analysis computation."""
         if self.units and hasattr(val,'to'):
             val = val.to(self.units)
@@ -214,8 +214,8 @@ class DesignNotes(object):
             d[self.var] = val
         rec = (label,_varlist,d)
         cell = None
-        if self.trace:
-            cell = display(self.fmt_record(rec,showvars=False),display_id=True)
+        if self.showrecord:
+            cell = display(self.fmt_record(rec,showdata=showdata),display_id=True)
         self._record.append((rec,cell))
         ##return val
         
@@ -231,7 +231,7 @@ class DesignNotes(object):
             return "    {0:<{1}}  OK \n      ({2})".format(label+'?',width,fmt_dict(_vars,_varlist))
         return "    {0:<{1}}  NG! *****\n      ({2})".format(label+'?',width,fmt_dict(_vars,_varlist))
     
-    def fmt_record(self,rec,width=None,var=None,governs=False,nsigfigs=4,showvars=True):
+    def fmt_record(self,rec,width=None,var=None,governs=False,nsigfigs=4,showdata=True,nl=True):
         """Format a computation record for display."""
         label,_varlist,_vars = rec
         _vars = _vars.copy()
@@ -240,8 +240,9 @@ class DesignNotes(object):
         if var is None:
             var = self.var
         ans = ""
-        if _vars and showvars:
+        if _vars and showdata:
             ans += fmt_dict2(_vars)
+        if nl:
             ans += "\n"
         ans += "    {label:<{width}} ".format(label=label+':',width=width)
         if var:
@@ -304,7 +305,7 @@ class DesignNotes(object):
             govval = self.selector([d[var] for (l,v,d),c in self._record])
         for (l,v,d),c in self._record:
             print(self.fmt_record((l,v,d),var=var,width=width+1,governs=govval is not None and govval == d.get(var,None),
-                                  nsigfigs=self.nsigfigs,showvars=False))
+                                  nsigfigs=self.nsigfigs,showdata=False,nl=False))
 
         if govval is not None:
             print()
@@ -316,28 +317,10 @@ class DesignNotes(object):
             for (_label,_vlist,_vars),_cell in self._record:
                 if _cell and govval == _vars.get(var,None):
                     ##print('Updating')
-                    _cell.update(self.fmt_record((_label,_vlist,_vars),governs=True))
-
-    def makeVARS(self,show=None):
-        if show is None:
-            show = self.show
-        def _makeVARS(varslist,*objlist,**kwds):
-            nonlocal show
-            nonlocal self
-            return CM1(notes=self,itemlist=items(varslist,*objlist,**kwds),show=show)
-        return _makeVARS
-            
-    def makeREC(self,show=None):
-        if show is None:
-            show = self.show
-        def _makeREC(var,label,**kwds):
-            nonlocal show
-            nonlocal self
-            return CM1(notes=self,itemlist=[(var,None)],show=show,label=label,record=True)
-        return _makeREC
+                    _cell.update(self.fmt_record((_label,_vlist,_vars),governs=True,showdata=False))
 
     def DATA(self,rvar,label,*ilist,**kwds):
-        kargs = dict(show=self.trace,record=True)
+        kargs = dict(record=True,showdata=self.showdata)
         kargs.update(kwds)
         return CM2(rvar,label,*ilist,notes=self,**kargs)
     
@@ -357,7 +340,7 @@ class CM2(object):
     """Context Manager 2: Injects variables into Global Name Space on enter,
     retorses them on exit."""
     
-    def __init__(self, rvar, label, *itemlists, show=False, notes=None, record=False):
+    def __init__(self, rvar, label, *itemlists, showdata=False, notes=None, record=False):
         self.rvar = rvar
         self.label = label
         self.itemlist = []
@@ -365,7 +348,7 @@ class CM2(object):
             self.itemlist.extend(il)
         if rvar:
             self.itemlist.append((rvar,None))
-        self.show = show
+        self.showdata = showdata
         self.notes = notes
         self.record = record and rvar
         if record:
@@ -387,19 +370,24 @@ class CM2(object):
         
     def __exit__(self,*args):
         
-        if self.show:
+        if self.showdata:
             values = {}
             for k,v in self.itemlist:
                 values[k] = self.gns[k]
             if values:
                 show(','.join([k for k,v in values.items()]),data=values,minwidth=5)
-                
+            
         if self.record:
-            var = self.rvar
-            val = self.gns[var]
-            if self.notes.units:
+            if self.rvar:
+                val = self.gns[self.rvar]
+            elif self.notes and self.notes.var and self.notes.var in self.gns:
+                val = self.gns[self.notes.var]
+            else:
+                val = None
+            if self.notes and self.notes.units and val is not None:
                 val = val.to(self.notes.units)
-            self.notes.record(val,self.label)
+                
+            self.notes.record(val,self.label,showdata=False)
             
         for k in self.added_vars:     # delete all added variables from GNS
             if k in self.gns:
