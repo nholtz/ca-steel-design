@@ -242,7 +242,7 @@ class DesignNotes(object):
         ans = ""
         if _vars and showvars:
             ans += fmt_dict2(_vars)
-        ans += "\n"
+            ans += "\n"
         ans += "    {label:<{width}} ".format(label=label+':',width=width)
         if var:
             val = _vars.pop(var)
@@ -336,6 +336,13 @@ class DesignNotes(object):
             return CM1(notes=self,itemlist=[(var,None)],show=show,label=label,record=True)
         return _makeREC
 
+    def DATA(self,rvar,label,*ilist,**kwds):
+        kargs = dict(show=self.trace,record=True)
+        kargs.update(kwds)
+        return CM2(rvar,label,*ilist,notes=self,**kargs)
+    
+    def GV(self,names,*objs,**kwds):
+        return items(names,*objs,**kwds)
         
 ################################################################ Caution! not yet finished below
     
@@ -392,6 +399,63 @@ class CM1(object):
             self.gns[k] = v
         self.changed_vars = {}
         
+class CM2(object):
+    
+    """Context Manager 2: Injects variables into Global Name Space on enter,
+    retorses them on exit."""
+    
+    def __init__(self, rvar, label, *itemlists, show=False, notes=None, record=False):
+        self.rvar = rvar
+        self.label = label
+        self.itemlist = []
+        for il in itemlists:
+            self.itemlist.extend(il)
+        if rvar:
+            self.itemlist.append((rvar,None))
+        self.show = show
+        self.notes = notes
+        self.record = record and rvar
+        if record:
+            if not notes:
+                raise ValueError("notes must be specified when record is True")
+        self.changed_vars = {}
+        self.added_vars = []
+        self.gns = get_ipython().user_ns
+    
+    def __enter__(self):
+        for k,v in self.itemlist:
+            if k in self.changed_vars or k in self.added_vars:
+                raise KeyError("Variable '{}' is used more than once.".format(k))
+            if k in self.gns:
+                self.changed_vars[k] = self.gns[k]
+            else:
+                self.added_vars.append(k)
+            self.gns[k] = v
+        
+    def __exit__(self,*args):
+        
+        if self.show:
+            values = {}
+            for k,v in self.itemlist:
+                values[k] = self.gns[k]
+            if values:
+                show(','.join([k for k,v in values.items()]),data=values,minwidth=5)
+                
+        if self.record:
+            var = self.rvar
+            val = self.gns[var]
+            if self.notes.units:
+                val = val.to(self.notes.units)
+            self.notes.record(val,self.label)
+            
+        for k in self.added_vars:     # delete all added variables from GNS
+            if k in self.gns:
+                del self.gns[k]
+        self.added_vars = []
+        for k,v in self.changed_vars.items():   # restore values of other variables in GNS
+            self.gns[k] = v
+        self.changed_vars = {}
+
 ################################################################
 ################ Parts
 ################################################################
