@@ -219,9 +219,6 @@ class DesignNotes(object):
         self._record.append((rec,cell))
         ##return val
         
-    def setvars(self,*args,**kwargs):
-        return DesignNotes_CM(self,*args,**kwargs)
-
     def fmt_check(self,chk,width=None):
         """Format a check record for display."""
         flag,label,_varlist,_vars = chk
@@ -318,6 +315,9 @@ class DesignNotes(object):
                 if _cell and govval == _vars.get(var,None):
                     ##print('Updating')
                     _cell.update(self.fmt_record((_label,_vlist,_vars),governs=True,showdata=False))
+
+    def setvars(self,*args,**kwargs):
+        return DesignNotes_CM(self,*args,**kwargs)
 
     def DATA(self,rvar,label,*ilist,**kwds):
         kargs = dict(record=True,showdata=self.showdata)
