@@ -316,9 +316,6 @@ class DesignNotes(object):
                     ##print('Updating')
                     _cell.update(self.fmt_record((_label,_vlist,_vars),governs=True,showdata=False))
 
-    def setvars(self,*args,**kwargs):
-        return DesignNotes_CM(self,*args,**kwargs)
-
     def DATA(self,rvar,label,*ilist,**kwds):
         kargs = dict(record=True,showdata=self.showdata)
         kargs.update(kwds)
@@ -332,125 +329,6 @@ class DesignNotes(object):
     
 ################################################################ Caution! not yet finished below
     
-## perthaps .setvars() should do most of the work of saving/injecting
-## then return a context manager to restore/log info
-## that way could be used outside of with statement ...
-## setvars captures all required variable values, does not log anything
-## only .__exit__() logs ....
-    
-class DesignNotes_CM(object):
-
-    """DesignNotes Context Manager."""
-
-    def __init__(self, notes, *objattrs, label=None, result_var=None,
-                 locals='', globals='', showrecord=None, record=True):
-        self.notes = notes
-        self.objattrs = objattrs
-        self.label = label
-        if result_var is None:
-            result_var = notes.var
-        self.result_var = result_var
-        self.locals = locals
-        self.globals = globals
-        if showrecord is None:
-            showrecord = notes.showrecord
-        self.showrecord = showrecord
-        self.record = record
-        self._setup()
-
-    def _setup(self):
-        """Add all attributes/values to the set of global variables.
-        Save enough state so that they can be restored when the context
-        manager exits."""
-        gns = get_ipython().user_ns  # get the ns for the user
-        d = {}
-        for ob in self.objattrs:
-            if ispartial(ob):
-                for target,value in ob.__ns__().items():
-                    if target in d:
-                        raise DesignerError('''Name '{}' has been used more than once.'''.format(target))
-                    d[target] = value
-                continue
-            else:
-                obj,names = ob
-            objns = obj.__ns__()
-            for expr in se_split(names):
-                if '=' in expr:
-                    target,rhs = [x.strip() for x in expr.split('=',1)]
-                    if rhs in objns:
-                        value = objns[rhs]
-                    else:
-                        value = eval(rhs,gns,objns)
-                else:
-                    target = expr
-                    value = objns[expr]
-                if target in d:
-                    raise DesignerError('''Name '{}' has been used more than once.'''.format(target))
-                d[target] = value
-        self.new_values = d
-        self.local_vars = [y for y in [x.strip() for x in self.locals.split(',')] if y] + [self.result_var]
-        self.global_vars = [y for y in [x.strip() for x in self.globals.split(',')] if y]
-        
-        self.changed_values = {}
-        self.added_vars = []
-        
-    def __enter__(self):
-        gns = get_ipython().user_ns
-        for k,v in self.new_values.items():
-            if k in gns:
-                self.changed_values[k] = gns[k]
-            else:
-                self.added_vars.append(k)
-            gns[k] = v
-            
-        for k in self.local_vars:
-            if k in self.changed_values or k in self.added_vars:
-                raise DesignerError('''Name '{}' has been used more than once.'''.format(k))
-            if k in gns:
-                self.changed_values[k] = gns[k]
-                del gns[k]
-            else:
-                self.added_vars.append(k)
-        return self
-    
-    enter = __enter__
-    
-    def __exit__(self,exc_type,exc_value,exc_tb):
-        """When the context exits, restore the global values to what they
-        were before entering."""
-        gns = get_ipython().user_ns  # get the ns for the user
-        
-        # capture current values of all local variables
-        dct = {}
-        for k,v in self.changed_values.items():
-            if k in gns:
-                dct[k] = gns[k]
-        for k in self.added_vars + self.global_vars:
-            if k in gns:
-                dct[k] = gns[k]
-        self.ending_values = dct
-        
-        # record the result produced
-        if self.record and self.label and exc_type is None:
-            rkey = self.result_var
-            if rkey in gns:
-                rval = gns[rkey]
-            else:
-                raise DesignerError('''Result variable '{}' is not defined.'''.format(rkey))
-            self.notes.record(rval,self.label,values=self.ending_values)
-        
-        # now change the user ns back to what it was before __enter__
-        for k,v in self.changed_values.items():
-            gns[k] = v               # restore old values
-        for k in self.added_vars:
-            if k in gns:
-                del gns[k]           # or delete them if they were newly created
-        self.changed_values = {}
-        self.added_vars = []
-        return False              # to re-raise exceptions
-    
-    exit = __exit__
-
 ################################################################
 ################ Another, simpler, context manager
 
@@ -534,6 +412,9 @@ class DesignNotes_CM3(object):
             showvars = notes.showdata
         self.showvars = showvars
         self.label = label
+        if self.label and record not in [False,0,'']:
+            if record is None:
+                record = self.notes.var
         self.record = record         # the variable to record
         if self.record:
             if not self.notes or not callable(getattr(self.notes,'record',None)):
