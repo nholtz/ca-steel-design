@@ -327,6 +327,9 @@ class DesignNotes(object):
     def GV(self,names,*objs,**kwds):
         return items(names,*objs,**kwds)
         
+    def usevars(self,*items,**kwds):
+        return DesignNotes_CM3(*items,notes=self,**kwds)
+    
 ################################################################ Caution! not yet finished below
     
 ## perthaps .setvars() should do most of the work of saving/injecting
@@ -361,7 +364,6 @@ class DesignNotes_CM(object):
         manager exits."""
         gns = get_ipython().user_ns  # get the ns for the user
         d = {}
-        gns = get_ipython().user_ns
         for ob in self.objattrs:
             if ispartial(ob):
                 for target,value in ob.__ns__().items():
@@ -514,6 +516,77 @@ class CM2(object):
             self.gns[k] = v
         self.changed_vars = {}
 
+class DesignNotes_CM3(object):
+
+    """DesignNotes Context Manager 3 (or maybe its 4)."""
+
+    def __init__(self, *voitems, locals='', globals='', 
+                 notes=None, showvars=None, label=None, record=None):
+        self.items = []
+        for voitem in voitems:
+            if len(voitem) == 2 and type(voitem[1]) is str:   # for compatibility with prev version
+                voitem = (voitem[1],voitem[0])
+            self.items.extend(items(*voitem))
+        self.locals = [x for x in [y.strip() for y in locals.split(',')] if x] if locals else []
+        self.globals = [x for x in [y.strip() for y in globals.split(',')] if x] if globals else []
+        self.notes = notes
+        if showvars is None and notes:
+            showvars = notes.showdata
+        self.showvars = showvars
+        self.label = label
+        self.record = record         # the variable to record
+        if self.record:
+            if not self.notes or not callable(getattr(self.notes,'record',None)):
+                raise ValueError('No notes object. Cannot record value of: {}',self.record)
+            self.locals.append(self.record)
+        self.__setup()
+                
+    def __setup(self):
+        self.changed_vars = {}
+        self.added_vars = []
+        self.gns = get_ipython().user_ns  # get the ns for the user
+        for k,v in self.items + [(kk,None) for kk in self.locals]:
+            if k in self.changed_vars or k in self.added_vars or k in self.globals:
+                raise KeyError('Variable is multiply declared: {}'.format(k))
+            if k in self.gns:
+                self.changed_vars[k] = self.gns[k]
+            else:
+                self.added_vars.append(k)
+            self.gns[k] = v
+        
+    def __enter__(self):
+        return self
+    
+    def __exit__(self,exc_type,exc_value,exc_tb):
+        
+        if exc_type is not None:   # dont do anything if an exception happened.
+            return
+        
+        for k in self.globals:
+            if k not in self.gns:
+                raise KeyError('Globally declared variable not used: {}'.format(k))
+        
+        if self.showvars:
+            keys = [k for k,v in self.items] + self.locals + self.globals
+            data = {k:self.gns.get(k,None) for k in keys}
+            show(keys,data=data,minwidth=5)
+            
+        if self.label and self.record not in [False,0,'']:
+            var = self.record if self.record else (self.notes.var if self.notes else None)
+            val = self.gns[var] if var else None
+            if var and self.notes:
+                self.notes.record(val,self.label,showdata=False)
+                
+        for k,v in self.changed_vars.items():
+            self.gns[k] = v
+        for k in self.added_vars:
+            if k in self.gns:
+                del self.gns[k]
+    
+    def exit(self):
+        self.__exit__(None,None,None)
+
+        
 ################################################################
 ################ Parts
 ################################################################

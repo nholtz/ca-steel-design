@@ -262,7 +262,11 @@ def show(*vlists,**kw):
         if callable(getattr(el,'vars',None)):
             _locals = el.vars()
             continue
-        for v in se_split(el):
+        if type(el) in [list,tuple]:
+            ell = el
+        else:
+            ell = se_split(el)
+        for v in ell:
             if v.startswith('*'):
                 scale = v[1:].strip()
                 if scale == '1':
