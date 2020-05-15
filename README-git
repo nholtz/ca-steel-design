@@ -15,3 +15,6 @@ git gists
     git commit -a -m 'msg'
 
     git push
+
+    git checkout older-branch   - to bring older-branch up to date
+    git merge newer-branch
