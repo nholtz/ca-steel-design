@@ -1,0 +1,3 @@
+[submodule "lib"]
+	path = lib
+	url = ssh://git@gitbox.nealholtz.ca:8229/files/git/sstlib.git
